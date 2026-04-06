@@ -1,0 +1,175 @@
+@import "../shared/theme.css";
+
+body {
+    background: var(--bg-1);
+    min-height: 100vh;
+    padding: 0.85rem;
+    overflow-x: hidden;
+}
+
+.mobile-shell {
+    width: min(560px, 100%);
+    margin: 0 auto;
+    min-height: 100vh;
+}
+
+.mobile-card {
+    position: relative;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 1.2rem;
+    display: grid;
+    gap: 0.9rem;
+    box-shadow: var(--shadow);
+    animation: rise-in 300ms ease-out;
+    overflow: hidden;
+}
+
+.mobile-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: var(--primary);
+}
+
+.hero {
+    margin-top: 0;
+}
+
+.brand-row {
+    gap: 0.75rem;
+}
+
+h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 4.2vw, 2.25rem);
+    line-height: 1.1;
+}
+
+.hint {
+    margin: 0;
+    color: #282828;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.7rem 0.75rem;
+}
+
+.form-grid {
+    display: grid;
+    gap: 0.7rem;
+}
+
+label {
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: #2b2521;
+}
+
+input {
+    min-height: 58px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0 0.8rem;
+    font-size: 1.02rem;
+    background: #fffaf4;
+}
+
+input:focus {
+    outline: 2px solid #d28a87;
+    border-color: var(--primary);
+}
+
+.btn {
+    min-height: 62px;
+    text-decoration: none;
+    display: grid;
+    place-items: center;
+    font-size: 1.06rem;
+}
+
+.btn-primary {
+    color: #fff;
+    background: var(--primary);
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.btn-primary:disabled {
+    opacity: 0.78;
+    cursor: wait;
+}
+
+.btn-ghost {
+    color: #1f1f1f;
+    background: #f0e2d7;
+    border: 1px solid #d2b8a6;
+}
+
+.empty-box {
+    margin: 0;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px dashed #d7c1b1;
+    border-radius: 12px;
+    padding: 0.7rem;
+}
+
+.loading-note {
+    margin: 0;
+    color: var(--muted);
+    font-weight: 600;
+    text-align: center;
+}
+
+.list-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.list-item {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.9rem 1rem;
+    text-decoration: none;
+    color: inherit;
+    background: var(--surface);
+    display: grid;
+    gap: 0.6rem;
+}
+
+.bike-item {
+    border-left: 6px solid var(--primary);
+}
+
+.item-title {
+    margin: 0;
+    font-weight: 800;
+}
+
+.item-sub {
+    margin: 0;
+    color: var(--muted);
+}
+
+@media (max-width: 560px) {
+    body {
+        padding: 0.65rem;
+    }
+
+    .mobile-card {
+        padding: 1rem;
+        border-radius: 18px;
+    }
+
+    h1 {
+        font-size: clamp(1.45rem, 8vw, 1.9rem);
+    }
+}

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="{{ refresh_seconds }}" />
+    <title>Admin Dashboard - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin.css') }}" />
+</head>
+<body>
+    <main class="admin-shell">
+        <header class="admin-topbar">
+            <div>
+                <div class="brand-row">
+                    <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+                    <p class="eyebrow">Giro Bicicleta</p>
+                </div>
+                <h1>Central Admin Dashboard</h1>
+                <p class="muted">Sesión: {{ admin_name }} · Actualiza cada {{ refresh_seconds }}s</p>
+            </div>
+            <form method="post" action="{{ url_for('admin_logout_page') }}">
+                <button class="btn btn-secondary" type="submit">Cerrar sesión</button>
+            </form>
+        </header>
+
+        {% if error_message %}
+            <section class="panel error-panel">
+                <h2>No se pudo cargar el estado</h2>
+                <p>{{ error_message }}</p>
+                <p class="muted">La página intentará refrescar automáticamente.</p>
+            </section>
+        {% endif %}
+
+        <section class="summary-grid">
+            <article class="summary-card">
+                <h2>Stations Online</h2>
+                <p class="big">{{ summary.online_stations }} / {{ summary.total_stations }}</p>
+            </article>
+            <article class="summary-card">
+                <h2>Available Bikes</h2>
+                <p class="big">{{ summary.available_bikes }}</p>
+            </article>
+            <article class="summary-card">
+                <h2>Active Rentals</h2>
+                <p class="big">{{ summary.active_rentals }}</p>
+            </article>
+            <article class="summary-card">
+                <h2>Recent Completed</h2>
+                <p class="big">{{ summary.completed_recent }}</p>
+            </article>
+        </section>
+
+        <section class="panel">
+            <h2>Stations</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>station_id</th>
+                            <th>name</th>
+                            <th>is_online</th>
+                            <th>dock_occupied</th>
+                            <th>last_heartbeat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in stations %}
+                            <tr>
+                                <td>{{ row.station_id }}</td>
+                                <td>{{ row.name }}</td>
+                                <td>
+                                    {% if row.is_online %}
+                                        <span class="badge badge-ok">online</span>
+                                    {% else %}
+                                        <span class="badge badge-off">offline</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.dock_occupied %}
+                                        <span class="badge badge-warn">occupied</span>
+                                    {% else %}
+                                        <span class="badge badge-neutral">free</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.last_heartbeat or "—" }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="empty">No station data</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Bikes</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>bike_id</th>
+                            <th>status</th>
+                            <th>current_station_id</th>
+                            <th>last_lat</th>
+                            <th>last_lon</th>
+                            <th>last_gps_time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in bikes %}
+                            <tr>
+                                <td>{{ row.bike_id }}</td>
+                                <td>
+                                    {% if row.status == "docked" %}
+                                        <span class="badge badge-ok">docked</span>
+                                    {% elif row.status == "rented" %}
+                                        <span class="badge badge-warn">rented</span>
+                                    {% else %}
+                                        <span class="badge badge-off">{{ row.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.current_station_id or "—" }}</td>
+                                <td>{{ row.last_lat if row.last_lat is not none else "—" }}</td>
+                                <td>{{ row.last_lon if row.last_lon is not none else "—" }}</td>
+                                <td>{{ row.last_gps_time or "—" }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="empty">No bike data</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Active Rentals</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>rental_ref</th>
+                            <th>user_id</th>
+                            <th>bike_id</th>
+                            <th>start_station_id</th>
+                            <th>start_time</th>
+                            <th>payment_method</th>
+                            <th>payment_status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in active_rentals %}
+                            <tr>
+                                <td title="{{ row.rental_id }}">{{ row.rental_id | short_rental_id }}</td>
+                                <td>{{ row.user_id }}</td>
+                                <td>{{ row.bike_id }}</td>
+                                <td>{{ row.start_station_id }}</td>
+                                <td>{{ row.start_time }}</td>
+                                <td>{{ row.payment_method or "—" }}</td>
+                                <td><span class="badge badge-warn">{{ row.payment_status }}</span></td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="empty">No active rentals</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Recent Completed Rentals</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>rental_ref</th>
+                            <th>user_id</th>
+                            <th>bike_id</th>
+                            <th>from</th>
+                            <th>to</th>
+                            <th>duration_minutes</th>
+                            <th>simulated_cost</th>
+                            <th>currency</th>
+                            <th>payment_status</th>
+                            <th>end_time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in completed_rentals %}
+                            <tr>
+                                <td title="{{ row.rental_id }}">{{ row.rental_id | short_rental_id }}</td>
+                                <td>{{ row.user_id }}</td>
+                                <td>{{ row.bike_id }}</td>
+                                <td>{{ row.start_station_id }}</td>
+                                <td>{{ row.end_station_id or "—" }}</td>
+                                <td>{{ row.duration_minutes if row.duration_minutes is not none else "—" }}</td>
+                                <td>
+                                    {% if row.simulated_cost is not none %}
+                                        {{ row.simulated_cost }}
+                                    {% else %}
+                                        Not priced yet
+                                    {% endif %}
+                                </td>
+                                <td>GTQ</td>
+                                <td><span class="badge badge-ok">{{ row.payment_status }}</span></td>
+                                <td>{{ row.end_time or "—" }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="10" class="empty">No completed rentals yet</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

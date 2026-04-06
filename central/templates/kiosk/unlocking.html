@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desbloqueando bicicleta - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+</head>
+<body>
+    <main class="flow-shell">
+        <header class="flow-header">
+            <p class="eyebrow">Giro Bicicleta</p>
+            <h1>Desbloqueando bicicleta...</h1>
+            <p class="subtext">{{ station_name }} · Bicicleta {{ bike_id }}</p>
+        </header>
+
+        <section class="card loading-card">
+            <div class="spinner" aria-hidden="true"></div>
+            <p class="status-title">Pago autorizado. Desbloqueando bicicleta...</p>
+            <p class="status-detail">Espera un momento mientras se prepara la bicicleta.</p>
+        </section>
+    </main>
+
+    <script>
+        window.setTimeout(function () {
+            window.location.href = "{{ url_for('station_ride_active') }}";
+        }, 2000);
+    </script>
+</body>
+</html>

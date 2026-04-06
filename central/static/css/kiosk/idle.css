@@ -1,0 +1,193 @@
+@import "../shared/theme.css";
+
+body {
+    min-height: 100vh;
+    background: var(--bg-1);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    overflow-x: hidden;
+}
+
+.kiosk {
+    position: relative;
+    z-index: 1;
+    width: min(760px, 100%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 1.25rem;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    display: grid;
+    gap: 1rem;
+    animation: rise-in 350ms ease-out;
+    overflow: hidden;
+}
+
+.kiosk::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: var(--primary);
+}
+
+.kiosk-header {
+    border: 1px solid var(--cool-border);
+    border-radius: 16px;
+    padding: 1rem;
+    background: #f3ede7;
+}
+
+.brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.eyebrow {
+    color: var(--accent);
+    font-size: 0.85rem;
+}
+
+.brand-logo {
+    width: 38px;
+    height: 38px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fbf3ec;
+}
+
+.kiosk-header h1 {
+    margin: 0.35rem 0 0;
+    font-weight: 800;
+    font-size: clamp(1.6rem, 4.2vw, 2.25rem);
+    line-height: 1.1;
+}
+
+.subtext {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 1rem;
+}
+
+#station-id {
+    color: var(--primary-dark);
+    font-weight: 700;
+}
+
+.status-card,
+.bikes-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+}
+
+.status-card {
+    border-left: 6px solid var(--accent);
+}
+
+.bikes-card {
+    border-left: 6px solid var(--primary);
+}
+
+.status-card h2,
+.bikes-card h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+}
+
+.count {
+    margin: 0;
+    font-size: clamp(2.2rem, 8vw, 3.4rem);
+    font-weight: 800;
+    color: var(--accent-dark);
+    line-height: 1;
+}
+
+.status-hint {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.bike-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.65rem;
+}
+
+.bike-list li {
+    border: 1px solid var(--cool-border);
+    border-radius: 12px;
+    padding: 0.65rem;
+    text-align: center;
+    font-weight: 700;
+    background: #f1ebe5;
+    color: #2f2a27;
+}
+
+.bike-list li:nth-child(odd) {
+    background: #ece3db;
+    border-color: #cfbeb1;
+}
+
+.bike-list .placeholder {
+    color: var(--muted);
+    font-weight: 500;
+    grid-column: 1 / -1;
+}
+
+.start-btn {
+    display: grid;
+    place-items: center;
+    min-height: 68px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 1.22rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 10px 18px rgba(162, 37, 33, 0.28);
+    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    text-decoration: none;
+}
+
+.start-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 22px rgba(162, 37, 33, 0.34);
+    background: #8f1f1c;
+}
+
+.start-btn:active {
+    transform: translateY(0);
+}
+
+.error-message {
+    margin: 0;
+    color: var(--danger);
+    font-weight: 600;
+    background: #feeceb;
+    border: 1px solid #f5c7c2;
+    border-radius: 10px;
+    padding: 0.5rem 0.7rem;
+}
+
+@media (min-width: 900px) {
+    .kiosk {
+        padding: 1.75rem;
+        gap: 1.1rem;
+    }
+}
+

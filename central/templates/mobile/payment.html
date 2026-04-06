@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pago móvil - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+</head>
+<body>
+    <main class="mobile-shell">
+        <section class="mobile-card">
+            <div class="brand-row">
+                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+                <p class="eyebrow">Pago móvil</p>
+            </div>
+            <h1>Autorizar renta</h1>
+            <p class="muted">Estación: {{ station_name }} ({{ station_id }})</p>
+            <p class="muted">Bicicleta: {{ bike_id }}</p>
+            <p class="hint">Se autorizará un pago simulado para iniciar tu viaje.</p>
+
+            {% if error_message %}
+                <p class="error-box">{{ error_message }}</p>
+            {% endif %}
+
+            <form method="post" class="form-grid" id="mobile-payment-form">
+                <button type="submit" class="btn btn-primary" id="mobile-payment-btn">Autorizar y empezar</button>
+                <p class="muted" id="mobile-payment-loading" hidden>Procesando...</p>
+            </form>
+            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Cancelar</a>
+        </section>
+    </main>
+    <script>
+        (function () {
+            const form = document.getElementById("mobile-payment-form");
+            const button = document.getElementById("mobile-payment-btn");
+            const loading = document.getElementById("mobile-payment-loading");
+            form.addEventListener("submit", function () {
+                button.disabled = true;
+                button.textContent = "Autorizando...";
+                loading.hidden = false;
+            });
+        })();
+    </script>
+</body>
+</html>

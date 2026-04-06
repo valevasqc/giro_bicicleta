@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+</head>
+<body>
+    <main class="flow-shell">
+        <header class="flow-header">
+            <p class="eyebrow">Giro Bicicleta</p>
+            <h1>No se pudo completar la acción</h1>
+            <p class="subtext">{{ station_name }} · {{ station_id }}</p>
+        </header>
+
+        <section class="card result-card rejected">
+            <p class="status-title">Error de operación</p>
+            <p class="status-detail">{{ error_message }}</p>
+        </section>
+
+        <div class="actions-stack">
+            <a class="secondary-btn" href="{{ back_href }}">Volver</a>
+            <form method="post" action="{{ url_for('station_logout') }}">
+                <button type="submit" class="danger-btn">Cerrar sesión</button>
+            </form>
+            <a class="secondary-btn" href="{{ url_for('station_home') }}">Inicio</a>
+        </div>
+    </main>
+</body>
+</html>

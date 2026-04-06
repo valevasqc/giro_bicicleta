@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estaciones - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+</head>
+<body>
+    <main class="mobile-shell">
+        <section class="mobile-card">
+            <div class="brand-row">
+                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+                <p class="eyebrow">Hola, {{ customer_name }}</p>
+            </div>
+            <h1>Elige una estación</h1>
+            {% if active_bike_id %}
+                <p class="hint">Tu viaje con la bicicleta {{ active_bike_id }} está activo. Abre una estación para completar el retorno ahí.</p>
+            {% endif %}
+            <div class="list-grid">
+                {% for station in stations %}
+                    <a class="list-item" href="{{ url_for('mobile_station_detail_page', station_id=station.station_id) }}">
+                        <p class="item-title">{{ station.name }}</p>
+                        <p class="item-sub">{{ station.station_id }}</p>
+                    </a>
+                {% else %}
+                    <p class="muted">No hay estaciones registradas.</p>
+                {% endfor %}
+            </div>
+            <form method="post" action="{{ url_for('mobile_logout_page') }}">
+                <button type="submit" class="btn btn-ghost">Cerrar sesión</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

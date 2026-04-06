@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resumen de retorno - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+</head>
+<body>
+    <main class="flow-shell">
+        <header class="flow-header">
+            <p class="eyebrow">Giro Bicicleta</p>
+            <h1>Retorno completado</h1>
+            <p class="subtext">{{ station_name }} · {{ station_id }}</p>
+        </header>
+
+        <section class="card result-card approved">
+            <p class="status-title">Bicicleta {{ summary.bike_id }}</p>
+            <p class="status-detail">Usuario: {{ summary.user_name }}</p>
+            <p class="status-detail">Duración: {{ summary.duration_minutes }} minutos</p>
+            {% if summary.simulated_cost is none %}
+                <p class="status-detail">Final pricing not configured yet.</p>
+            {% else %}
+                <p class="status-detail">Costo simulado: {{ summary.simulated_cost }} {{ summary.currency }}</p>
+            {% endif %}
+            <p class="payment-pill">Estado de pago: {{ summary.payment_status }}</p>
+        </section>
+
+        <a class="primary-btn" href="{{ url_for('station_home') }}">Finalizar</a>
+    </main>
+</body>
+</html>

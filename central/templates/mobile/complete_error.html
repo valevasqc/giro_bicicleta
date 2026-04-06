@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error de retorno - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+</head>
+<body>
+    <main class="mobile-shell">
+        <section class="mobile-card">
+            <div class="brand-row">
+                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+                <p class="eyebrow">Retorno</p>
+            </div>
+            <h1>No se pudo completar el retorno</h1>
+            <p class="muted">{{ error_message }}</p>
+
+            <form method="post" action="{{ url_for('mobile_complete_return_page') }}">
+                <input type="hidden" name="station_id" value="{{ station_id }}" />
+                <button type="submit" class="btn btn-primary">Reintentar</button>
+            </form>
+            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Inicio</a>
+            <form method="post" action="{{ url_for('mobile_logout_page') }}">
+                <button type="submit" class="btn btn-primary">Cerrar sesión</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

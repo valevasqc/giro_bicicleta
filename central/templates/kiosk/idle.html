@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Giro Bicicleta - Estación {{ station_id }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/idle.css') }}" />
+</head>
+<body data-station-id="{{ station_id }}">
+    <main class="kiosk">
+        <header class="kiosk-header">
+            <div class="brand-row">
+                <p class="eyebrow">Giro Bicicleta</p>
+                <img
+                    class="brand-logo"
+                    src="{{ url_for('static', filename='img/logo.jpg') }}"
+                    alt="Logo de Giro Bicicleta"
+                />
+            </div>
+            <h1 id="station-name">Cargando estación...</h1>
+            <p class="subtext">ID de estación: <span id="station-id">{{ station_id }}</span></p>
+        </header>
+
+        <section class="status-card" aria-live="polite">
+            <h2>Bicicletas disponibles</h2>
+            <p class="count" id="available-count">--</p>
+            <p class="status-hint">Listas para desbloquear en esta estación</p>
+        </section>
+
+        <section class="bikes-card">
+            <h2>Lista de bicicletas</h2>
+            <ul id="bike-list" class="bike-list">
+                <li class="placeholder">Cargando bicicletas...</li>
+            </ul>
+        </section>
+
+        <a id="start-login-btn" class="start-btn" href="{{ url_for('station_login') }}">Empieza aquí</a>
+        <p id="error-message" class="error-message" hidden></p>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/kiosk/idle.js') }}"></script>
+</body>
+</html>
