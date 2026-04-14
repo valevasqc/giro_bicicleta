@@ -20,12 +20,12 @@ def seed():
 
         conn.executemany(
             """
-            INSERT INTO stations (station_id, name, is_online, dock_occupied, last_heartbeat)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO stations (station_id, name, is_online, dock_occupied, power_connected, lock_confirmed, last_heartbeat)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("S1", "Station 1", 0, 1, None),
-                ("S2", "Station 2", 0, 0, None),
+                ("S1", "Station 1", 0, 1, 0, 0, None),
+                ("S2", "Station 2", 0, 0, 0, 0, None),
             ],
         )
 

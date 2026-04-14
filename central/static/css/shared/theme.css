@@ -51,7 +51,17 @@ body {
     font-family: "Chillax", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
 }
 
-h1,
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+h1 {
+    font-family: "SaoTorpes", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+}
+
 h2,
 h3,
 h4,
@@ -59,7 +69,17 @@ h5,
 h6,
 .status-title,
 .item-title {
-    font-family: "SaoTorpes", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+    font-family: "Chillax", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+h2 {
+    font-size: 1.65rem;
+}
+
+h3 {
+    font-size: 1.4rem;
 }
 
 .eyebrow {
@@ -98,6 +118,33 @@ h6,
     text-decoration: none;
     cursor: pointer;
     transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.logout-btn {
+    border-radius: 999px;
+    border: 1px solid var(--danger-dark);
+    background: var(--primary);
+    color: inherit;
+    font-weight: 780;
+    font-variation-settings: "wght" 780;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    padding-inline: 1rem;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.logout-btn:hover {
+    color: #fff;
+}
+
+.logout-btn:hover {
+    background: var(--primary-dark);
+    border-color: var(--danger-dark);
+}
+
+.logout-btn:active {
+    background: #731917;
 }
 
 .error-message,

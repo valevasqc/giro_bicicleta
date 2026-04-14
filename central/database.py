@@ -1,7 +1,10 @@
 import sqlite3
 import json
 
-from config import DB_PATH, SCHEMA_PATH
+try:
+    from .config import DB_PATH, SCHEMA_PATH
+except ImportError:
+    from config import DB_PATH, SCHEMA_PATH
 
 
 def get_connection():

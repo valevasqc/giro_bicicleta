@@ -14,7 +14,15 @@ try:
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
         TRACKER_API_KEY,
+        STUB_GPIO,
+        LOCK_PIN,
+        DOCK_PIN,
+        CHARGE_PIN,
+        UNLOCK_DURATION_SECONDS,
+        STUB_DOCK_OCCUPIED,
+        STUB_CHARGE_CONNECTED,
     )
+    from .gpio_driver import GPIODriver
 except ImportError:
     from database import get_connection, init_db, log_event
     from pricing import calculate_duration_minutes, calculate_simulated_cost
@@ -25,10 +33,27 @@ except ImportError:
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
         TRACKER_API_KEY,
+        STUB_GPIO,
+        LOCK_PIN,
+        DOCK_PIN,
+        CHARGE_PIN,
+        UNLOCK_DURATION_SECONDS,
+        STUB_DOCK_OCCUPIED,
+        STUB_CHARGE_CONNECTED,
     )
+    from gpio_driver import GPIODriver
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
+
+gpio = GPIODriver(
+    stub=STUB_GPIO,
+    lock_pin=LOCK_PIN,
+    dock_pin=DOCK_PIN,
+    charge_pin=CHARGE_PIN,
+    stub_dock_occupied=STUB_DOCK_OCCUPIED,
+    stub_charge_connected=STUB_CHARGE_CONNECTED,
+)
 
 STATION_SERVICE_TOKEN_CACHE = {}
 
@@ -74,6 +99,9 @@ def reason_to_human_message(reason):
         "invalid_station": "La estación configurada no es válida.",
         "wrong_station_token": "El token de servicio no corresponde a esta estación.",
         "no_active_rental": "No hay un viaje activo para completar en esta bicicleta.",
+        "power_not_connected": "La bicicleta no está conectada a la fuente de carga. Conecta el cable e intenta de nuevo.",
+        "lock_not_confirmed": "El candado no está cerrado correctamente. Asegúralo e intenta de nuevo.",
+        "return_checks_failed": "No se pudo verificar el retorno. Asegúrate de que el cable esté conectado y el candado cerrado.",
         "station_unreachable": "No se pudo consultar el estado de la estación.",
         "no_bikes_available": "No hay bicicletas disponibles en este momento.",
         "admin_state_unavailable": "No se pudo cargar el estado del sistema en este momento.",
@@ -283,17 +311,30 @@ def get_station_service_token(force_refresh=False, station_id=None):
     return token, None
 
 
-def complete_with_station_service_retry(bike_id, station_id=None):
+def complete_with_station_service_retry(bike_id, station_id=None, power_connected=True, lock_confirmed=True):
+    """Call /api/rentals/complete with automatic token refresh on 401.
+
+    power_connected and lock_confirmed come from GPIO reed-switch reads on the Pi.
+    Both default to True so the laptop demo works without real hardware attached.
+    Replace these defaults with actual GPIO stub reads once the Pi driver is wired up.
+    """
     target_station_id = station_id or STATION_ID
 
     token, token_error = get_station_service_token(force_refresh=False, station_id=target_station_id)
     if not token:
         return 401, {"ok": False, "reason": token_error or "missing_token"}
 
+    complete_payload = {
+        "station_id": target_station_id,
+        "bike_id": bike_id,
+        "power_connected": power_connected,   # TODO: read from GPIO stub / LoRa
+        "lock_confirmed": lock_confirmed,     # TODO: read from GPIO stub / LoRa
+    }
+
     status_code, payload = call_internal_api(
         "POST",
         "/api/rentals/complete",
-        payload={"station_id": target_station_id, "bike_id": bike_id},
+        payload=complete_payload,
         token=token,
     )
 
@@ -308,7 +349,7 @@ def complete_with_station_service_retry(bike_id, station_id=None):
     return call_internal_api(
         "POST",
         "/api/rentals/complete",
-        payload={"station_id": target_station_id, "bike_id": bike_id},
+        payload=complete_payload,
         token=refreshed_token,
     )
 
@@ -398,7 +439,8 @@ def mobile_stations_page():
         stations = [
             dict(row) for row in conn.execute(
                 """
-                SELECT station_id, name, is_online, dock_occupied, last_heartbeat
+                SELECT station_id, name, is_online, dock_occupied,
+                       power_connected, lock_confirmed, last_heartbeat
                 FROM stations
                 ORDER BY station_id
                 """
@@ -1009,7 +1051,11 @@ def station_complete_return():
         return redirect(url_for("station_home"))
 
     try:
-        status_code, payload = complete_with_station_service_retry(bike_id)
+        status_code, payload = complete_with_station_service_retry(
+            bike_id,
+            power_connected=gpio.read_charge_connected(),
+            lock_confirmed=gpio.read_lock_confirmed(),
+        )
     except Exception:
         status_code, payload = 500, {"ok": False, "reason": "station_unreachable"}
 
@@ -1476,6 +1522,8 @@ def start_rental():
 
         conn.commit()
 
+    gpio.unlock_for_seconds(UNLOCK_DURATION_SECONDS)
+
     safe_log_event(
         source=station_id,
         event_type="PAYMENT_AUTHORIZED",
@@ -1533,6 +1581,35 @@ def complete_rental():
             "ok": False,
             "reason": "wrong_station_token"
         }), 403
+
+    # Hardware return checks (reed-switch signals from station).
+    # Both must be True to confirm a valid return.
+    power_connected = bool(data.get("power_connected", False))
+    lock_confirmed = bool(data.get("lock_confirmed", False))
+
+    if not power_connected:
+        safe_log_event(
+            source=station_id,
+            event_type="RETURN_FAILED",
+            payload={"bike_id": bike_id, "reason": "power_not_connected"},
+        )
+        return jsonify({
+            "ok": False,
+            "completed": False,
+            "reason": "power_not_connected",
+        }), 200
+
+    if not lock_confirmed:
+        safe_log_event(
+            source=station_id,
+            event_type="RETURN_FAILED",
+            payload={"bike_id": bike_id, "reason": "lock_not_confirmed"},
+        )
+        return jsonify({
+            "ok": False,
+            "completed": False,
+            "reason": "lock_not_confirmed",
+        }), 200
 
     with get_connection() as conn:
         rental = conn.execute(
@@ -1592,7 +1669,9 @@ def complete_rental():
         conn.execute(
             """
             UPDATE stations
-            SET dock_occupied = 1
+            SET dock_occupied = 1,
+                power_connected = 1,
+                lock_confirmed = 1
             WHERE station_id = ?
             """,
             (station_id,),
@@ -1620,6 +1699,8 @@ def complete_rental():
             "end_station_id": station_id,
             "duration_minutes": duration_minutes,
             "simulated_cost": simulated_cost,
+            "power_connected": True,
+            "lock_confirmed": True,
         },
     )
 
@@ -1646,7 +1727,8 @@ def admin_state():
         stations = [
             dict(row) for row in conn.execute(
                 """
-                SELECT station_id, name, is_online, dock_occupied, last_heartbeat
+                SELECT station_id, name, is_online, dock_occupied,
+                       power_connected, lock_confirmed, last_heartbeat
                 FROM stations
                 ORDER BY station_id
                 """
@@ -1726,7 +1808,8 @@ def station_status(station_id):
     with get_connection() as conn:
         station = conn.execute(
             """
-            SELECT station_id, name, is_online, dock_occupied, last_heartbeat
+            SELECT station_id, name, is_online, dock_occupied,
+                   power_connected, lock_confirmed, last_heartbeat
             FROM stations
             WHERE station_id = ?
             """,
@@ -1823,12 +1906,29 @@ def station_heartbeat():
             "reason": "missing_fields"
         }), 400
 
+    # Optional hardware state from reed-switch signals (LoRa packet from station).
+    # If not sent (e.g. old station firmware), keep the current DB value.
+    def _parse_bool_field(raw) -> int | None:
+        """Return 1, 0, or None if the field was not provided."""
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return 1 if raw else 0
+        if isinstance(raw, int):
+            return 1 if raw else 0
+        if isinstance(raw, str):
+            return 1 if raw.strip().lower() in ("1", "true") else 0
+        return None
+
+    power_connected_val = _parse_bool_field(data.get("power_connected"))
+    lock_confirmed_val = _parse_bool_field(data.get("lock_confirmed"))
+
     heartbeat_time = utc_iso(utc_now())
 
     with get_connection() as conn:
         station = conn.execute(
             """
-            SELECT station_id
+            SELECT station_id, power_connected, lock_confirmed
             FROM stations
             WHERE station_id = ?
             """,
@@ -1841,22 +1941,32 @@ def station_heartbeat():
                 "reason": "invalid_station"
             }), 400
 
+        # Fall back to current DB value if the field was not included in the heartbeat.
+        power_connected = power_connected_val if power_connected_val is not None else station["power_connected"]
+        lock_confirmed = lock_confirmed_val if lock_confirmed_val is not None else station["lock_confirmed"]
+
         conn.execute(
             """
             UPDATE stations
             SET last_heartbeat = ?,
                 dock_occupied = ?,
+                power_connected = ?,
+                lock_confirmed = ?,
                 is_online = 1
             WHERE station_id = ?
             """,
-            (heartbeat_time, dock_occupied, station_id),
+            (heartbeat_time, dock_occupied, power_connected, lock_confirmed, station_id),
         )
         conn.commit()
 
     safe_log_event(
         source=station_id,
         event_type="STATION_HEARTBEAT",
-        payload={"dock_occupied": dock_occupied},
+        payload={
+            "dock_occupied": dock_occupied,
+            "power_connected": bool(power_connected),
+            "lock_confirmed": bool(lock_confirmed),
+        },
     )
 
     return jsonify({
@@ -1864,6 +1974,8 @@ def station_heartbeat():
         "station_id": station_id,
         "last_heartbeat": heartbeat_time,
         "dock_occupied": dock_occupied,
+        "power_connected": bool(power_connected),
+        "lock_confirmed": bool(lock_confirmed),
         "is_online": 1,
     })
 
@@ -1940,6 +2052,27 @@ def tracker_gps_update():
             """,
             (lat, lon, gps_time, bike_id),
         )
+
+        # Look up the active rental so we can attach the ping to it.
+        active_rental = conn.execute(
+            """
+            SELECT rental_id
+            FROM rentals
+            WHERE bike_id = ? AND status = 'active'
+            LIMIT 1
+            """,
+            (bike_id,),
+        ).fetchone()
+        active_rental_id = active_rental["rental_id"] if active_rental else None
+
+        conn.execute(
+            """
+            INSERT INTO gps_pings (bike_id, rental_id, timestamp, lat, lon)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (bike_id, active_rental_id, gps_time, lat, lon),
+        )
+
         conn.commit()
 
     safe_log_event(
@@ -1962,4 +2095,4 @@ def tracker_gps_update():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)

@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS stations (
     station_id      TEXT PRIMARY KEY,                   -- 'S1', 'S2'
     name            TEXT NOT NULL,
     is_online       INTEGER NOT NULL DEFAULT 0,
-    dock_occupied   INTEGER NOT NULL DEFAULT 0,
+    dock_occupied   INTEGER NOT NULL DEFAULT 0,         -- kept for reference; non-authoritative for return logic
+    power_connected INTEGER NOT NULL DEFAULT 0,         -- reed-switch: bike charging cable connected
+    lock_confirmed  INTEGER NOT NULL DEFAULT 0,         -- reed-switch: physical lock engaged
     last_heartbeat  TEXT
 );
 
@@ -72,6 +74,18 @@ CREATE TABLE IF NOT EXISTS events (
     payload     TEXT
 );
 
+-- GPS ping history — every LoRa position update stored for export
+CREATE TABLE IF NOT EXISTS gps_pings (
+    ping_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    bike_id    TEXT NOT NULL REFERENCES bikes(bike_id),
+    rental_id  TEXT REFERENCES rentals(rental_id),  -- null if bike was not rented at ping time
+    timestamp  TEXT NOT NULL,
+    lat        REAL NOT NULL,
+    lon        REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gps_pings_rental_id ON gps_pings(rental_id);
+CREATE INDEX IF NOT EXISTS idx_gps_pings_bike_id   ON gps_pings(bike_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_rentals_status ON rentals(status);
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC);

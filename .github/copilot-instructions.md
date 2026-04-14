@@ -13,6 +13,7 @@ You are assisting on a Python MVP for a smart rentable e-bike system built for a
 
 ## Current implementation status
 The central backend already exists. Current routes include auth, rental lifecycle, admin state, and station status endpoints. Keep new work aligned with the current backend instead of redesigning from scratch.
+Current UI flows (kiosk, mobile, admin) are served from `central/app.py` with Jinja templates under `central/templates/`.
 
 ## What we are actually coding now
 1. Harden the central backend, schema, seed data, and pricing/payment placeholders.
@@ -51,10 +52,11 @@ The central backend already exists. Current routes include auth, rental lifecycl
 - Password hashing should stay compatible with the current Flask/Werkzeug setup; avoid raw SHA-256
 
 ## UI branding
-- Primary brand red: `#A22521`
-- Use off-white `#FBF3EC` instead of pure white
-- Use black for text and strong contrast
+- Primary brand red: `#A22522`
+- Use off-white `#F8F6EC` instead of pure white most of the time
+- Use black `#070707` for text and strong contrast
 - Prefer clean, kiosk-friendly layouts: off-white backgrounds, red primary actions/highlights, black text
+- Supporting brand colors: green `#3F6634`, orange `#FA7921`
 
 ## What to optimize for
 - Reliability during a live demo
@@ -62,3 +64,8 @@ The central backend already exists. Current routes include auth, rental lifecycl
 - Easy debugging
 - Small, understandable files
 - End-to-end completeness over extra features
+
+## Repo hygiene
+- Keep local artifacts out of git: `.DS_Store`, `.vscode/`, `*.db`, `*.sqlite3`, logs, and virtualenv folders.
+- Keep this file at `.github/copilot-instructions.md`.
+- Keep `README.md` updated when startup commands or demo credentials change.
