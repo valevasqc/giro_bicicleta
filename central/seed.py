@@ -12,6 +12,7 @@ def seed():
 
     with get_connection() as conn:
         conn.execute("DELETE FROM events")
+        conn.execute("DELETE FROM gps_pings")
         conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM rentals")
         conn.execute("DELETE FROM users")
@@ -32,15 +33,15 @@ def seed():
         conn.executemany(
             """
             INSERT INTO users (
-                user_id, username, name, password_hash, role, bound_station_id, is_active
+                user_id, username, name, password_hash, role, bound_station_id, is_active, balance
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("U1", "valeria", "Valeria Demo", hash_password("demo123"), "customer", None, 1),
-                ("A1", "admin", "System Admin", hash_password("admin123"), "admin", None, 1),
-                ("SS1", "station_s1", "Station S1 Service", hash_password("station123"), "station_service", "S1", 1),
-                ("SS2", "station_s2", "Station S2 Service", hash_password("station123"), "station_service", "S2", 1),
+                ("U1", "valeria", "Valeria Demo", hash_password("demo123"), "customer", None, 1, 50.00),
+                ("A1", "admin", "System Admin", hash_password("admin123"), "admin", None, 1, 0.00),
+                ("SS1", "station_s1", "Station S1 Service", hash_password("station123"), "station_service", "S1", 1, 0.00),
+                ("SS2", "station_s2", "Station S2 Service", hash_password("station123"), "station_service", "S2", 1, 0.00),
             ],
         )
 

@@ -22,6 +22,7 @@ class GPIODriver:
         lock_pin,
         dock_pin,
         charge_pin,
+        lock_unlocks_when_high: bool = True,
         stub_dock_occupied: bool = True,
         stub_charge_connected: bool = True,
     ):
@@ -29,6 +30,7 @@ class GPIODriver:
         self._lock_pin = lock_pin
         self._dock_pin = dock_pin
         self._charge_pin = charge_pin
+        self._lock_unlocks_when_high = bool(lock_unlocks_when_high)
         self._stub_dock_occupied = bool(stub_dock_occupied)
         self._stub_charge_connected = bool(stub_charge_connected)
 
@@ -37,11 +39,17 @@ class GPIODriver:
             self._GPIO = GPIO
             GPIO.setmode(GPIO.BCM)
             if lock_pin is not None:
-                GPIO.setup(lock_pin, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = locked
+                GPIO.setup(lock_pin, GPIO.OUT, initial=self._locked_level())
             if dock_pin is not None:
                 GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             if charge_pin is not None:
                 GPIO.setup(charge_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    def _unlock_level(self):
+        return self._GPIO.HIGH if self._lock_unlocks_when_high else self._GPIO.LOW
+
+    def _locked_level(self):
+        return self._GPIO.LOW if self._lock_unlocks_when_high else self._GPIO.HIGH
 
     def unlock_for_seconds(self, duration: float) -> bool:
         """Briefly open the electromagnetic lock then re-engage it.
@@ -57,11 +65,11 @@ class GPIODriver:
             return False
 
         try:
-            self._GPIO.output(self._lock_pin, self._GPIO.LOW)  # LOW = unlocked
+            self._GPIO.output(self._lock_pin, self._unlock_level())
 
             def _relock():
                 time.sleep(duration)
-                self._GPIO.output(self._lock_pin, self._GPIO.HIGH)  # HIGH = locked
+                self._GPIO.output(self._lock_pin, self._locked_level())
 
             threading.Thread(target=_relock, daemon=True).start()
             return True

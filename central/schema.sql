@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
                           CHECK (role IN ('customer', 'station_service', 'admin')),
     bound_station_id  TEXT REFERENCES stations(station_id),
     is_active         INTEGER NOT NULL DEFAULT 1,
+    balance           REAL NOT NULL DEFAULT 0,
     created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 

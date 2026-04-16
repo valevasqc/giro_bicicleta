@@ -16,13 +16,21 @@ def get_connection():
 
 
 def init_db():
-    """Create all tables from schema.sql."""
+    """Create all tables from schema.sql and apply lightweight migrations."""
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         schema_sql = f.read()
 
     with get_connection() as conn:
         conn.executescript(schema_sql)
+        _migrate(conn)
         conn.commit()
+
+
+def _migrate(conn):
+    """Add columns introduced after the initial schema, on existing DBs."""
+    user_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "balance" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN balance REAL NOT NULL DEFAULT 0")
 
 
 def fetch_one(query, params=()):

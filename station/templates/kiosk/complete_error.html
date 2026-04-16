@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Viaje activo - Giro Bicicleta</title>
+    <title>Error de retorno - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,24 +17,21 @@
     <main class="flow-shell">
         <header class="flow-header">
             <p class="eyebrow">Giro Bicicleta</p>
-            <h1>Viaje activo</h1>
+            <h1>No se pudo completar el retorno</h1>
             <p class="subtext">{{ station_name }} · {{ station_id }}</p>
         </header>
 
-        <section class="card result-card approved">
-            <p class="status-title">Bicicleta {{ bike_id }}</p>
-            <p class="status-detail">Tu viaje está activo.</p>
-            <p class="status-detail">Devuelve la bicicleta en una estación para finalizar tu viaje.</p>
-            <p class="payment-pill">Estado de pago: {{ payment_status }}</p>
+        <section class="card result-card rejected">
+            <p class="status-title">Error de operación</p>
+            <p class="status-detail">{{ error_message }}</p>
         </section>
 
-        <form method="post" action="{{ url_for('station_complete_return') }}" class="form-grid">
-            <button type="submit" class="primary-btn">Completar retorno en esta estación</button>
-        </form>
-
-        <div class="actions-grid">
-            <a class="secondary-btn" href="{{ url_for('station_home') }}">Inicio</a>
-            <form method="post" action="{{ url_for('station_logout') }}">
+        <div class="actions-stack">
+            <form method="post" action="{{ url_for('kiosk.station_complete_return') }}">
+                <button type="submit" class="primary-btn">Reintentar</button>
+            </form>
+            <a class="secondary-btn" href="{{ url_for('kiosk.station_home') }}">Inicio</a>
+            <form method="post" action="{{ url_for('kiosk.station_logout') }}">
                 <button type="submit" class="danger-btn logout-btn">Cerrar sesión</button>
             </form>
         </div>

@@ -1,0 +1,187 @@
+@font-face {
+    font-family: "Chillax";
+    src: url("../../fonts/Chillax-Variable.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "SaoTorpes";
+    src: url("../../fonts/SaoTorpes.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+:root {
+    --bg-1: #e6dfd8;
+    --bg-2: #ddd1c5;
+    --card: #f7f1ea;
+    --surface: #f5f0ea;
+    --card-strong: #f2e9df;
+    --panel: #f7f1ea;
+    --text: #111111;
+    --muted: #5a514a;
+    --primary: #a22521;
+    --primary-dark: #7d1b18;
+    --accent: #3f6736;
+    --accent-dark: #2f4f29;
+    --ink-soft: #2f2925;
+    --border: #ccb9ac;
+    --border-soft: #d8c9bc;
+    --cool-border: #c9b8ab;
+    --danger: #b42318;
+    --danger-dark: #811916;
+    --ok: #2f6f43;
+    --ok-bg: #e4efe7;
+    --warn: #9a5a1d;
+    --off: #6b6570;
+    --shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    --bg: var(--bg-1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    color: var(--text);
+    font-family: "Chillax", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+h1 {
+    font-family: "SaoTorpes", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6,
+.status-title,
+.item-title {
+    font-family: "Chillax", "Montserrat", "Calibri", "Segoe UI", Tahoma, Geneva, Verdana, Arial, sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+h2 {
+    font-size: 1.65rem;
+}
+
+h3 {
+    font-size: 1.4rem;
+}
+
+.eyebrow {
+    margin: 0;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.muted {
+    margin: 0;
+    color: var(--muted);
+}
+
+.brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.brand-logo {
+    width: 34px;
+    height: 34px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fbf3ec;
+}
+
+:where(.btn, .primary-btn, .secondary-btn, .danger-btn, .start-btn) {
+    border: 0;
+    border-radius: 12px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.logout-btn {
+    border-radius: 999px;
+    border: 1px solid var(--danger-dark);
+    background: var(--primary);
+    color: inherit;
+    font-weight: 780;
+    font-variation-settings: "wght" 780;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    padding-inline: 1rem;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.logout-btn:hover {
+    color: #fff;
+}
+
+.logout-btn:hover {
+    background: var(--primary-dark);
+    border-color: var(--danger-dark);
+}
+
+.logout-btn:active {
+    background: #731917;
+}
+
+.error-message,
+.error-box {
+    margin: 0;
+    color: #8f1f1c;
+    font-weight: 600;
+    background: #feeceb;
+    border: 1px solid #f4cac6;
+    border-radius: 11px;
+    padding: 0.64rem 0.72rem;
+}
+
+.info-box,
+.info-message {
+    margin: 0;
+    color: #274f6f;
+    font-weight: 600;
+    background: #e9f4fd;
+    border: 1px solid #c8def0;
+    border-radius: 11px;
+    padding: 0.64rem 0.72rem;
+}
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

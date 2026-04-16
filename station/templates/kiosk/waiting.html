@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Procesando - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+</head>
+<body>
+    <main class="flow-shell">
+        <header class="flow-header">
+            <p class="eyebrow">Giro Bicicleta</p>
+            <h1>Procesando...</h1>
+            <p class="subtext">{{ station_name }} · {{ station_id }}</p>
+        </header>
+
+        <section class="card">
+            <p class="status-title">Consultando a la central</p>
+            <p class="status-detail" id="waiting-status">Esperando respuesta...</p>
+        </section>
+    </main>
+
+    <script>
+        (function() {
+            const pollUrl = "{{ poll_url }}";
+            const resultUrl = "{{ result_url }}";
+            const homeUrl = "{{ url_for('kiosk.station_home') }}";
+            const timeoutSeconds = {{ timeout_seconds }};
+            const statusEl = document.getElementById("waiting-status");
+
+            function redirect(url) {
+                window.location.href = url;
+            }
+
+            function poll() {
+                fetch(pollUrl, { cache: "no-store" })
+                    .then((r) => r.json())
+                    .then((data) => {
+                        if (!data.pending) {
+                            if (data.outcome === "timeout") {
+                                statusEl.textContent =
+                                    "La central no respondió. Vuelve al inicio e intenta de nuevo.";
+                                setTimeout(() => redirect(homeUrl), 3000);
+                                return;
+                            }
+                            redirect(resultUrl);
+                            return;
+                        }
+                        setTimeout(poll, 1000);
+                    })
+                    .catch(() => {
+                        // Network hiccup against our own Flask — retry.
+                        setTimeout(poll, 1000);
+                    });
+            }
+
+            poll();
+        })();
+    </script>
+</body>
+</html>

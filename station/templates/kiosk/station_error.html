@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Desbloqueando bicicleta - Giro Bicicleta</title>
+    <title>Error - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,21 +17,22 @@
     <main class="flow-shell">
         <header class="flow-header">
             <p class="eyebrow">Giro Bicicleta</p>
-            <h1>Desbloqueando bicicleta...</h1>
-            <p class="subtext">{{ station_name }} · Bicicleta {{ bike_id }}</p>
+            <h1>No se pudo completar la acción</h1>
+            <p class="subtext">{{ station_name }} · {{ station_id }}</p>
         </header>
 
-        <section class="card loading-card">
-            <div class="spinner" aria-hidden="true"></div>
-            <p class="status-title">Pago autorizado. Desbloqueando bicicleta...</p>
-            <p class="status-detail">Espera un momento mientras se prepara la bicicleta.</p>
+        <section class="card result-card rejected">
+            <p class="status-title">Error de operación</p>
+            <p class="status-detail">{{ error_message }}</p>
         </section>
-    </main>
 
-    <script>
-        window.setTimeout(function () {
-            window.location.href = "{{ url_for('station_ride_active') }}";
-        }, 2000);
-    </script>
+        <div class="actions-stack">
+            <a class="secondary-btn" href="{{ back_href }}">Volver</a>
+            <form method="post" action="{{ url_for('kiosk.station_logout') }}">
+                <button type="submit" class="danger-btn logout-btn">Cerrar sesión</button>
+            </form>
+            <a class="secondary-btn" href="{{ url_for('kiosk.station_home') }}">Inicio</a>
+        </div>
+    </main>
 </body>
 </html>

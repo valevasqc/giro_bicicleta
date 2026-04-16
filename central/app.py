@@ -7,6 +7,8 @@ from werkzeug.security import check_password_hash
 try:
     from .database import get_connection, init_db, log_event
     from .pricing import calculate_duration_minutes, calculate_simulated_cost
+    from .lora_receiver import LoRaReceiver
+    from .lora_sender import LoRaSender
     from .config import (
         SECRET_KEY,
         STATION_ID,
@@ -14,18 +16,17 @@ try:
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
         TRACKER_API_KEY,
-        STUB_GPIO,
-        LOCK_PIN,
-        DOCK_PIN,
-        CHARGE_PIN,
-        UNLOCK_DURATION_SECONDS,
-        STUB_DOCK_OCCUPIED,
-        STUB_CHARGE_CONNECTED,
+        STUB_LORA,
+        STUB_LORA_INBOUND,
+        STUB_LORA_OUTBOUND,
+        LORA_SERIAL_PORT,
+        LORA_BAUD_RATE,
     )
-    from .gpio_driver import GPIODriver
 except ImportError:
     from database import get_connection, init_db, log_event
     from pricing import calculate_duration_minutes, calculate_simulated_cost
+    from lora_receiver import LoRaReceiver
+    from lora_sender import LoRaSender
     from config import (
         SECRET_KEY,
         STATION_ID,
@@ -33,27 +34,41 @@ except ImportError:
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
         TRACKER_API_KEY,
-        STUB_GPIO,
-        LOCK_PIN,
-        DOCK_PIN,
-        CHARGE_PIN,
-        UNLOCK_DURATION_SECONDS,
-        STUB_DOCK_OCCUPIED,
-        STUB_CHARGE_CONNECTED,
+        STUB_LORA,
+        STUB_LORA_INBOUND,
+        STUB_LORA_OUTBOUND,
+        LORA_SERIAL_PORT,
+        LORA_BAUD_RATE,
     )
-    from gpio_driver import GPIODriver
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
 
-gpio = GPIODriver(
-    stub=STUB_GPIO,
-    lock_pin=LOCK_PIN,
-    dock_pin=DOCK_PIN,
-    charge_pin=CHARGE_PIN,
-    stub_dock_occupied=STUB_DOCK_OCCUPIED,
-    stub_charge_connected=STUB_CHARGE_CONNECTED,
+# Make sure the DB schema (and any migrations) are in place before the LoRa
+# receiver thread starts hitting it.
+init_db()
+
+# LoRa I/O for station <-> central messages. The receiver runs on a daemon
+# thread that tails the stub file (or serial port) and mutates the DB.
+lora_sender = LoRaSender(
+    stub=STUB_LORA,
+    stub_path=STUB_LORA_OUTBOUND if STUB_LORA else None,
+    serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
+    baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
 )
+app.extensions["lora_sender"] = lora_sender
+
+lora_receiver = LoRaReceiver(
+    stub=STUB_LORA,
+    stub_path=STUB_LORA_INBOUND if STUB_LORA else None,
+    serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
+    baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
+    sender=lora_sender,
+)
+lora_receiver.start()
+app.extensions["lora_receiver"] = lora_receiver
+
+print(f"[CENTRAL] LoRa ready (stub={STUB_LORA})")
 
 STATION_SERVICE_TOKEN_CACHE = {}
 
@@ -65,11 +80,6 @@ def short_rental_id(value):
         return "-"
 
     return f"R-{rental_id[:8].upper()}"
-
-
-@app.route("/")
-def station_home():
-    return render_template("kiosk/idle.html", station_id=STATION_ID)
 
 
 def call_internal_api(method, path, payload=None, token=None):
@@ -115,20 +125,6 @@ def get_notice_message():
         "session_expired": "Tu sesión expiró o no estaba activa. Inicia sesión nuevamente.",
     }
     return notice_mapping.get(notice)
-
-
-def get_customer_session():
-    customer_auth = session.get("customer_auth")
-    if not isinstance(customer_auth, dict):
-        return None
-
-    if customer_auth.get("role") != "customer":
-        return None
-
-    if not customer_auth.get("token"):
-        return None
-
-    return customer_auth
 
 
 def get_admin_session():
@@ -219,18 +215,6 @@ def sync_mobile_active_rental_from_db(mobile_auth):
     return active_rental
 
 
-def sync_station_active_rental_from_db(customer_auth):
-    user_id = customer_auth.get("user_id") if isinstance(customer_auth, dict) else None
-    active_rental = get_active_rental_for_user(user_id)
-
-    if active_rental:
-        session["active_rental"] = active_rental
-    else:
-        session.pop("active_rental", None)
-
-    return active_rental
-
-
 def get_station_name_by_id(station_id):
     with get_connection() as conn:
         station = conn.execute(
@@ -243,26 +227,6 @@ def get_station_name_by_id(station_id):
         ).fetchone()
 
     return station["name"] if station else station_id
-
-
-def get_station_name():
-    return get_station_name_by_id(STATION_ID)
-
-
-def render_station_error_page(message, back_href):
-    return render_template(
-        "kiosk/station_error.html",
-        station_id=STATION_ID,
-        station_name=get_station_name(),
-        error_message=message,
-        back_href=back_href,
-    )
-
-
-def clear_customer_ride_session_data():
-    session.pop("customer_auth", None)
-    session.pop("approved_request", None)
-    session.pop("active_rental", None)
 
 
 def get_station_service_credentials_for_station(station_id):
@@ -805,300 +769,6 @@ def admin_dashboard_page():
     )
 
 
-@app.route("/station/login", methods=["GET", "POST"])
-def station_login():
-    error_message = None
-    username_value = ""
-    notice_message = get_notice_message()
-
-    if request.method == "POST":
-        username_value = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-
-        if not username_value or not password:
-            error_message = reason_to_human_message("missing_credentials")
-        else:
-            try:
-                status_code, payload = call_internal_api(
-                    "POST",
-                    "/api/auth/login",
-                    payload={"username": username_value, "password": password},
-                )
-            except Exception:
-                status_code, payload = 500, {"ok": False, "reason": "invalid_credentials"}
-
-            if status_code == 200 and payload.get("ok"):
-                if payload.get("role") != "customer":
-                    token = payload.get("token")
-                    if token:
-                        call_internal_api("POST", "/api/auth/logout", token=token)
-                    error_message = "Solo las cuentas de cliente pueden usar este flujo de estación."
-                else:
-                    session["customer_auth"] = {
-                        "token": payload.get("token"),
-                        "user_id": payload.get("user_id"),
-                        "name": payload.get("name"),
-                        "role": payload.get("role"),
-                    }
-                    return redirect(url_for("station_rental_request_result"))
-            else:
-                reason = payload.get("reason") or "invalid_credentials"
-                error_message = reason_to_human_message(reason)
-
-    return render_template(
-        "kiosk/login.html",
-        station_id=STATION_ID,
-        error_message=error_message,
-        username_value=username_value,
-        notice_message=notice_message,
-    )
-
-
-@app.route("/station/rental-request", methods=["GET"])
-def station_rental_request_result():
-    customer_auth = get_customer_session()
-    if not customer_auth:
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    existing_active_rental = sync_station_active_rental_from_db(customer_auth)
-    if existing_active_rental:
-        return redirect(url_for("station_ride_active"))
-
-    token = customer_auth["token"]
-    user_name = customer_auth.get("name") or "Cliente"
-
-    try:
-        status_code, station_payload = call_internal_api("GET", f"/api/stations/{STATION_ID}/status")
-    except Exception:
-        status_code, station_payload = 500, {"ok": False, "reason": "station_unreachable"}
-
-    if status_code != 200 or not station_payload.get("ok"):
-        reason = station_payload.get("reason") or "station_unreachable"
-        return render_template(
-            "kiosk/request_result.html",
-            station_id=STATION_ID,
-            user_name=user_name,
-            approved=False,
-            bike_id=None,
-            reason=reason,
-            reason_message=reason_to_human_message(reason),
-        )
-
-    available_bikes = station_payload.get("available_bikes") or []
-    if not available_bikes:
-        reason = "no_bikes_available"
-        return render_template(
-            "kiosk/request_result.html",
-            station_id=STATION_ID,
-            user_name=user_name,
-            approved=False,
-            bike_id=None,
-            reason=reason,
-            reason_message=reason_to_human_message(reason),
-        )
-
-    bike_id = available_bikes[0].get("bike_id")
-    if not bike_id:
-        reason = "bike_not_available"
-        return render_template(
-            "kiosk/request_result.html",
-            station_id=STATION_ID,
-            user_name=user_name,
-            approved=False,
-            bike_id=None,
-            reason=reason,
-            reason_message=reason_to_human_message(reason),
-        )
-
-    try:
-        status_code, request_payload = call_internal_api(
-            "POST",
-            "/api/rentals/request",
-            payload={"station_id": STATION_ID, "bike_id": bike_id},
-            token=token,
-        )
-    except Exception:
-        status_code, request_payload = 500, {"ok": False, "reason": "station_unreachable"}
-
-    if status_code == 401:
-        session.clear()
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    approved = bool(request_payload.get("ok") and request_payload.get("approved"))
-    reason = request_payload.get("reason")
-
-    if approved:
-        session["approved_request"] = {"bike_id": bike_id}
-    else:
-        session.pop("approved_request", None)
-
-    return render_template(
-        "kiosk/request_result.html",
-        station_id=STATION_ID,
-        user_name=user_name,
-        approved=approved,
-        bike_id=bike_id if approved else None,
-        reason=reason,
-        reason_message=reason_to_human_message(reason) if reason else "",
-    )
-
-
-@app.route("/station/payment", methods=["GET", "POST"])
-def station_payment():
-    customer_auth = get_customer_session()
-    if not customer_auth:
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    approved_request = session.get("approved_request")
-    bike_id = approved_request.get("bike_id") if isinstance(approved_request, dict) else None
-    if not bike_id:
-        return redirect(url_for("station_rental_request_result"))
-
-    station_name = get_station_name()
-    user_name = customer_auth.get("name") or "Cliente"
-
-    if request.method == "POST":
-        try:
-            status_code, payload = call_internal_api(
-                "POST",
-                "/api/rentals/start",
-                payload={
-                    "station_id": STATION_ID,
-                    "bike_id": bike_id,
-                    "payment_method": "station_card",
-                },
-                token=customer_auth["token"],
-            )
-        except Exception:
-            status_code, payload = 500, {"ok": False, "reason": "station_unreachable"}
-
-        if status_code == 401:
-            session.clear()
-            return redirect(url_for("station_login", notice="session_expired"))
-
-        if status_code in (200, 201) and payload.get("ok"):
-            session["active_rental"] = {
-                "rental_id": payload.get("rental_id"),
-                "bike_id": payload.get("bike_id"),
-                "start_time": payload.get("start_time"),
-                "payment_method": payload.get("payment_method"),
-                "payment_status": payload.get("payment_status"),
-            }
-            session.pop("approved_request", None)
-            return redirect(url_for("station_unlocking"))
-
-        reason = payload.get("reason") or "station_unreachable"
-        return render_station_error_page(
-            reason_to_human_message(reason),
-            back_href=url_for("station_payment"),
-        )
-
-    return render_template(
-        "kiosk/payment.html",
-        station_id=STATION_ID,
-        station_name=station_name,
-        user_name=user_name,
-        bike_id=bike_id,
-    )
-
-
-@app.route("/station/unlocking", methods=["GET"])
-def station_unlocking():
-    customer_auth = get_customer_session()
-    if not customer_auth:
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    active_rental = sync_station_active_rental_from_db(customer_auth)
-    if not active_rental or not active_rental.get("bike_id"):
-        return redirect(url_for("station_home"))
-
-    return render_template(
-        "kiosk/unlocking.html",
-        station_id=STATION_ID,
-        station_name=get_station_name(),
-        bike_id=active_rental.get("bike_id"),
-    )
-
-
-@app.route("/station/ride-active", methods=["GET"])
-def station_ride_active():
-    customer_auth = get_customer_session()
-    if not customer_auth:
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    active_rental = sync_station_active_rental_from_db(customer_auth)
-    if not active_rental or not active_rental.get("bike_id"):
-        return redirect(url_for("station_home"))
-
-    return render_template(
-        "kiosk/ride_active.html",
-        station_id=STATION_ID,
-        station_name=get_station_name(),
-        bike_id=active_rental.get("bike_id"),
-        payment_status=active_rental.get("payment_status") or "authorized",
-    )
-
-
-@app.route("/station/complete-return", methods=["POST"])
-def station_complete_return():
-    customer_auth = get_customer_session()
-    if not customer_auth:
-        return redirect(url_for("station_login", notice="session_expired"))
-
-    active_rental = sync_station_active_rental_from_db(customer_auth)
-    bike_id = active_rental.get("bike_id") if active_rental else None
-    if not bike_id:
-        return redirect(url_for("station_home"))
-
-    try:
-        status_code, payload = complete_with_station_service_retry(
-            bike_id,
-            power_connected=gpio.read_charge_connected(),
-            lock_confirmed=gpio.read_lock_confirmed(),
-        )
-    except Exception:
-        status_code, payload = 500, {"ok": False, "reason": "station_unreachable"}
-
-    if status_code in (200, 201) and payload.get("ok") and payload.get("completed"):
-        summary = {
-            "bike_id": bike_id,
-            "user_name": payload.get("user_name") or "Cliente",
-            "duration_minutes": payload.get("duration_minutes"),
-            "simulated_cost": payload.get("simulated_cost"),
-            "currency": payload.get("currency") or "GTQ",
-            "payment_status": payload.get("payment_status") or "captured",
-        }
-        clear_customer_ride_session_data()
-        return render_template(
-            "kiosk/return_summary.html",
-            station_id=STATION_ID,
-            station_name=get_station_name(),
-            summary=summary,
-        )
-
-    reason = payload.get("reason") or "station_unreachable"
-    return render_template(
-        "kiosk/complete_error.html",
-        station_id=STATION_ID,
-        station_name=get_station_name(),
-        error_message=reason_to_human_message(reason),
-    )
-
-
-@app.route("/station/logout", methods=["POST"])
-def station_logout():
-    customer_auth = session.get("customer_auth")
-    token = customer_auth.get("token") if isinstance(customer_auth, dict) else None
-
-    if token:
-        try:
-            call_internal_api("POST", "/api/auth/logout", token=token)
-        except Exception:
-            pass
-
-    clear_customer_ride_session_data()
-    return redirect(url_for("station_home"))
-
 
 def utc_now():
     return datetime.now(timezone.utc)
@@ -1180,6 +850,11 @@ def validate_token(required_role=None):
         }), 403)
 
     return token, row, None
+
+
+@app.route("/")
+def index():
+    return redirect(url_for("admin_login_page"))
 
 
 @app.route("/health")
@@ -1522,7 +1197,9 @@ def start_rental():
 
         conn.commit()
 
-    gpio.unlock_for_seconds(UNLOCK_DURATION_SECONDS)
+    # Hardware unlock now happens on the station Pi when it receives
+    # RENTAL_APPROVED over LoRa. Mobile-web rentals rely on the user
+    # walking up to the kiosk; the unlock fires there, not here.
 
     safe_log_event(
         source=station_id,
@@ -1582,34 +1259,9 @@ def complete_rental():
             "reason": "wrong_station_token"
         }), 403
 
-    # Hardware return checks (reed-switch signals from station).
-    # Both must be True to confirm a valid return.
-    power_connected = bool(data.get("power_connected", False))
-    lock_confirmed = bool(data.get("lock_confirmed", False))
-
-    if not power_connected:
-        safe_log_event(
-            source=station_id,
-            event_type="RETURN_FAILED",
-            payload={"bike_id": bike_id, "reason": "power_not_connected"},
-        )
-        return jsonify({
-            "ok": False,
-            "completed": False,
-            "reason": "power_not_connected",
-        }), 200
-
-    if not lock_confirmed:
-        safe_log_event(
-            source=station_id,
-            event_type="RETURN_FAILED",
-            payload={"bike_id": bike_id, "reason": "lock_not_confirmed"},
-        )
-        return jsonify({
-            "ok": False,
-            "completed": False,
-            "reason": "lock_not_confirmed",
-        }), 200
+    # Reed switches are not installed yet; bypass hardware return checks.
+    power_connected = True
+    lock_confirmed = True
 
     with get_connection() as conn:
         rental = conn.execute(
@@ -1788,6 +1440,7 @@ def admin_state():
                 """
                 SELECT event_id, timestamp, source, event_type, payload
                 FROM events
+                WHERE event_type != 'STATION_HEARTBEAT'
                 ORDER BY timestamp DESC, event_id DESC
                 LIMIT 20
                 """
@@ -2094,5 +1747,6 @@ def tracker_gps_update():
     })
 
 if __name__ == "__main__":
-    init_db()
+    # init_db + LoRa startup already happened at import time above so the
+    # receiver thread is alive and listening by the time Flask binds the port.
     app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
