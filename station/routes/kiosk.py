@@ -160,14 +160,10 @@ def station_login():
 
         state.set_pending("login", {"username": username, "bike_id": STATION_BIKE_ID})
 
-        _lora_send(format_message(
-            RENTAL_REQUEST,
-            STATION_ID,
-            STATION_BIKE_ID,
-            username,
-            password,
-            _utc_iso(),
-        ))
+        msg = format_message(RENTAL_REQUEST, STATION_ID, STATION_BIKE_ID, username, password, _utc_iso())
+        print(f"[KIOSK] sending RENTAL_REQUEST for user={username!r} bike={STATION_BIKE_ID}")
+        _lora_send(msg)
+        print(f"[KIOSK] RENTAL_REQUEST sent, waiting for reply…")
 
         return redirect(url_for("kiosk.station_rental_request_result"))
 
@@ -191,6 +187,14 @@ def station_login():
 
 @bp.route("/station/rental-request", methods=["GET"], endpoint="station_rental_request_result")
 def station_rental_request_result():
+    inbox_snapshot = {
+        "LOGIN_OK": state.peek_inbound(LOGIN_OK) is not None,
+        "LOGIN_FAIL": state.peek_inbound(LOGIN_FAIL) is not None,
+        "RENTAL_APPROVED": state.peek_inbound(RENTAL_APPROVED) is not None,
+        "RENTAL_DENIED": state.peek_inbound(RENTAL_DENIED) is not None,
+    }
+    print(f"[KIOSK] rental-request result check  inbox={inbox_snapshot}")
+
     # LOGIN_FAIL and RENTAL_DENIED are terminal failures.
     fail = state.peek_inbound(LOGIN_FAIL) or state.peek_inbound(RENTAL_DENIED)
     if fail:
@@ -201,6 +205,7 @@ def station_rental_request_result():
         state.clear_pending()
         fields = fail["fields"]
         reason = fields[1] if len(fields) > 1 else "invalid_credentials"
+        print(f"[KIOSK] DENIED — reason={reason!r}")
         return render_template(
             "kiosk/request_result.html",
             station_id=STATION_ID,
@@ -215,6 +220,7 @@ def station_rental_request_result():
     rental_approved = state.peek_inbound(RENTAL_APPROVED)
 
     if login_ok and rental_approved:
+        print(f"[KIOSK] LOGIN_OK + RENTAL_APPROVED received — unlocking flow")
         state.take_inbound(LOGIN_OK)
         state.take_inbound(RENTAL_APPROVED)
 
@@ -335,12 +341,10 @@ def station_complete_return():
     state.take_inbound(RETURN_COMPLETE)
     state.set_pending("return", {"bike_id": bike_id})
 
-    _lora_send(format_message(
-        BIKE_DOCKED,
-        STATION_ID,
-        bike_id,
-        _utc_iso(),
-    ))
+    msg = format_message(BIKE_DOCKED, STATION_ID, bike_id, _utc_iso())
+    print(f"[KIOSK] sending BIKE_DOCKED for bike={bike_id}")
+    _lora_send(msg)
+    print(f"[KIOSK] BIKE_DOCKED sent, waiting for RETURN_COMPLETE…")
 
     # Render a waiting page that will redirect to this same endpoint (GET)
     # once central replies. GET handler below consumes RETURN_COMPLETE.
@@ -352,8 +356,10 @@ def station_complete_return():
 
 @bp.route("/station/return-result", methods=["GET"], endpoint="station_return_result")
 def station_return_result():
+    print(f"[KIOSK] return-result check  RETURN_COMPLETE_in_inbox={state.peek_inbound(RETURN_COMPLETE) is not None}")
     reply = state.peek_inbound(RETURN_COMPLETE)
     if reply:
+        print(f"[KIOSK] RETURN_COMPLETE received — rendering summary")
         state.take_inbound(RETURN_COMPLETE)
         state.clear_pending()
         # RETURN_COMPLETE|station_id|bike_id|name|duration_minutes|cost|balance_remaining|ts

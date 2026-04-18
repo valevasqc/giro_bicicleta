@@ -38,7 +38,7 @@ STUB_CHARGE_CONNECTED = os.getenv("STUB_CHARGE_CONNECTED", "true").lower() in ("
 # --- LoRa ---------------------------------------------------------------
 # STUB_LORA=true replaces pyserial with two append-only files so central
 # and station can round-trip messages on the same laptop during dev.
-STUB_LORA = os.getenv("STUB_LORA", "true").lower() not in ("0", "false", "no")
+STUB_LORA = False
 
 # Shared stub files. Central writes to OUTBOUND (station -> central side:
 # it reads), and reads from INBOUND (central writes). Station does the
@@ -51,7 +51,8 @@ STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_central.log"
 STUB_LORA_INBOUND = STUB_LORA_DIR / "to_station.log"
 
 # Real pyserial settings (ignored when STUB_LORA is true).
-LORA_SERIAL_PORT = os.getenv("LORA_SERIAL_PORT", "/dev/ttyUSB0")
+LORA_PORT = "/dev/cu.usbmodem1101"
+LORA_SERIAL_PORT = LORA_PORT
 LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
 
 # --- Kiosk timing -------------------------------------------------------

@@ -149,12 +149,24 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        with serial.Serial(port=self._serial_port, baudrate=self._baud_rate, timeout=1) as ser:
+        # Reuse the sender's already-open port. Opening the same /dev node
+        # twice from the same process causes "Resource busy" on macOS/Linux
+        # and silently kills the receiver thread.
+        shared_ser = getattr(self._sender, "serial", None)
+        _owns = shared_ser is None
+        ser = shared_ser if shared_ser is not None else serial.Serial(
+            port=self._serial_port, baudrate=self._baud_rate, timeout=1
+        )
+        print(
+            f"[LORA RX] listening on {ser.port} @ {ser.baudrate} baud"
+            f"  shared={not _owns}"
+        )
+        try:
             while not self._stop.is_set():
                 try:
                     raw = ser.readline()
                 except Exception as exc:
-                    print(f"[LORA] serial read error: {exc}")
+                    print(f"[LORA RX] serial read error: {exc}")
                     time.sleep(self._poll_interval)
                     continue
 
@@ -162,13 +174,21 @@ class LoRaReceiver(threading.Thread):
                     continue
 
                 self._handle_line(raw.decode("utf-8", errors="replace"))
+        finally:
+            if _owns:
+                ser.close()
 
     # --- dispatch -------------------------------------------------------
     def _handle_line(self, line: str) -> None:
+        stripped = line.strip()
+        # Silently skip ESP32 diagnostic lines (# debug, READY).
+        # Keep TX result: visible — it only appears on TX failure in new firmware.
+        if not stripped or stripped.startswith("#") or stripped.startswith("READY"):
+            return
+        print(f"[LORA RX DEBUG] handle_line: {stripped!r}")
         parsed = parse_message(line)
         if parsed is None:
-            if line.strip():
-                print(f"[LORA] dropped unparseable line: {line!r}")
+            print(f"[LORA RX] dropped unparseable line: {line!r}")
             return
 
         msg_type, fields = parsed
@@ -244,8 +264,10 @@ class LoRaReceiver(threading.Thread):
         bike_id = fields[1].strip()
         username = fields[2].strip()
         password = fields[3]  # do not strip — passwords may be whitespace-sensitive
+        print(f"[LORA] RENTAL_REQUEST: station={station_id} bike={bike_id} user={username!r}")
 
         def deny(reason: str) -> None:
+            print(f"[LORA] RENTAL_DENIED → {station_id}: {reason}")
             self._sender.send(format_message(RENTAL_DENIED, station_id, reason, _utc_iso()))
             self._safe_log_event(
                 source=station_id,
@@ -254,6 +276,7 @@ class LoRaReceiver(threading.Thread):
             )
 
         def login_fail(reason: str) -> None:
+            print(f"[LORA] LOGIN_FAIL → {station_id}: {reason}")
             self._sender.send(format_message(LOGIN_FAIL, station_id, reason, _utc_iso()))
             self._safe_log_event(
                 source=station_id,
@@ -271,7 +294,12 @@ class LoRaReceiver(threading.Thread):
                 (username,),
             ).fetchone()
 
-            if not user or not check_password_hash(user["password_hash"], password):
+            if not user:
+                print(f"[LORA] RENTAL_REQUEST: user {username!r} not found")
+                login_fail("invalid_credentials")
+                return
+            if not check_password_hash(user["password_hash"], password):
+                print(f"[LORA] RENTAL_REQUEST: bad password for {username!r}")
                 login_fail("invalid_credentials")
                 return
 
@@ -306,8 +334,10 @@ class LoRaReceiver(threading.Thread):
                 (bike_id,),
             ).fetchone()
             if not bike:
+                print(f"[LORA] RENTAL_REQUEST: bike {bike_id!r} not in DB")
                 deny("bike_not_available")
                 return
+            print(f"[LORA] RENTAL_REQUEST: bike status={bike['status']} at={bike['current_station_id']!r}")
             if bike["status"] != "docked":
                 deny("bike_not_available")
                 return
@@ -324,6 +354,7 @@ class LoRaReceiver(threading.Thread):
                 return
 
             balance = float(user["balance"] or 0.0)
+            print(f"[LORA] RENTAL_REQUEST: balance={balance:.2f}  minimum={MINIMUM_BALANCE_TO_RENT}")
             if balance < MINIMUM_BALANCE_TO_RENT:
                 deny("insufficient_balance")
                 return
@@ -349,13 +380,19 @@ class LoRaReceiver(threading.Thread):
 
         ts = _utc_iso()
         # LOGIN_OK|station_id|user_id|name|token|balance|ts
+        print(f"[LORA] sending LOGIN_OK → {station_id}  user={user_id} name={name!r}")
         self._sender.send(format_message(
             LOGIN_OK, station_id, user_id, name, token, f"{balance:.2f}", ts,
         ))
         # RENTAL_APPROVED|station_id|bike_id|user_id|ts
-        self._sender.send(format_message(
-            RENTAL_APPROVED, station_id, bike_id, user_id, ts,
-        ))
+        # Sent twice with a gap: the first may be lost if the station ESP32 is
+        # still processing LOGIN_OK and not yet back in RX mode.
+        approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, user_id, ts)
+        print(f"[LORA] sending RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 1)")
+        self._sender.send(approved_msg)
+        time.sleep(2)
+        print(f"[LORA] sending RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 2)")
+        self._sender.send(approved_msg)
         self._safe_log_event(
             source=station_id,
             event_type="RENTAL_APPROVED",

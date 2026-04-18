@@ -1,26 +1,10 @@
-"""Pipe-delimited LoRa message protocol shared by station and central.
+"""Shared LoRa protocol helpers used by central and station.
 
-Messages are plain-ASCII strings with fields separated by FIELD_SEP ("|").
-One message per serial line, terminated by "\n". No JSON, no framing —
-the LoRa radio already gives us packetization, and strings are easier to
-eyeball during debugging.
-
-Grammar (| = separator):
-
-Station -> Central:
-    HEARTBEAT|<station_id>|<dock_occupied:0|1>|<charging_connected:0|1>|<ts>
-    RENTAL_REQUEST|<station_id>|<bike_id>|<username>|<password>|<ts>
-    BIKE_RELEASED|<station_id>|<bike_id>|<user_id>|<ts>
-    BIKE_DOCKED|<station_id>|<bike_id>|<ts>
-    GPS|<bike_id>|<unix_ts>|<lat>|<lon>
-
-Central -> Station:
-    LOGIN_OK|<station_id>|<user_id>|<name>|<token>|<balance>|<ts>
-    LOGIN_FAIL|<station_id>|<reason>|<ts>
-    RENTAL_APPROVED|<station_id>|<bike_id>|<user_id>|<ts>
-    RENTAL_DENIED|<station_id>|<reason>|<ts>
-    RETURN_COMPLETE|<station_id>|<bike_id>|<name>|<duration_minutes>|<cost>|<balance_remaining>|<ts>
+Provides compatibility exports expected by existing receiver/sender code:
+message type constants, format_message, parse_message, and parse_lora_message.
 """
+
+from __future__ import annotations
 
 FIELD_SEP = "|"
 
@@ -44,11 +28,7 @@ ALL_TYPES = STATION_TO_CENTRAL | CENTRAL_TO_STATION
 
 
 def format_message(msg_type: str, *fields) -> str:
-    """Join a message type and its fields with FIELD_SEP.
-
-    All fields are str()-coerced. Fields must not contain FIELD_SEP or newlines;
-    the caller is responsible for keeping payloads clean (usernames, names, etc.).
-    """
+    """Build a pipe-delimited message line."""
     parts = [str(msg_type)]
     for field in fields:
         parts.append("" if field is None else str(field))
@@ -56,11 +36,7 @@ def format_message(msg_type: str, *fields) -> str:
 
 
 def parse_message(line: str):
-    """Parse a raw LoRa line into (msg_type, [fields]).
-
-    Returns None for empty / unrecognized lines so callers can skip them
-    without try/except noise in the hot path.
-    """
+    """Parse a raw line into (msg_type, [fields]) or None."""
     if not line:
         return None
 
@@ -74,3 +50,35 @@ def parse_message(line: str):
         return None
 
     return msg_type, parts[1:]
+
+
+def parse_lora_message(raw: str) -> dict | None:
+    """Parse one raw LoRa line into a normalized dict.
+
+    Returns None for empty, malformed, or unsupported lines.
+    """
+    parts = raw.strip().split("|")
+    if not parts or not parts[0]:
+        return None
+    t = parts[0]
+    try:
+        if t == "HEARTBEAT" and len(parts) == 5:
+            return {"type": t, "station_id": parts[1], "dock_occupied": parts[2],
+                    "charging_connected": parts[3], "ts": parts[4]}
+        if t == "RENTAL_REQUEST" and len(parts) == 6:
+            return {"type": t, "station_id": parts[1], "bike_id": parts[2],
+                    "username": parts[3], "password": parts[4], "ts": parts[5]}
+        if t == "BIKE_RELEASED" and len(parts) == 5:
+            return {"type": t, "station_id": parts[1], "bike_id": parts[2],
+                    "user_id": parts[3], "ts": parts[4]}
+        if t == "BIKE_DOCKED" and len(parts) == 4:
+            return {"type": t, "station_id": parts[1], "bike_id": parts[2], "ts": parts[3]}
+        if t == "GPS" and len(parts) == 5:
+            return {"type": t, "bike_id": parts[1], "ts": parts[2],
+                    "lat": float(parts[3]), "lon": float(parts[4])}
+        # Central->Station messages (received at station side)
+        if t in ("LOGIN_OK", "LOGIN_FAIL", "RENTAL_APPROVED", "RENTAL_DENIED", "RETURN_COMPLETE"):
+            return {"type": t, "parts": parts[1:]}
+    except (ValueError, IndexError):
+        return None
+    return None

@@ -41,6 +41,7 @@ class LoRaReceiver(threading.Thread):
         serial_port: str | None,
         baud_rate: int | None,
         poll_interval: float = 0.2,
+        serial_obj=None,
     ):
         super().__init__(daemon=True, name="lora-receiver")
         self._stub = stub
@@ -48,6 +49,7 @@ class LoRaReceiver(threading.Thread):
         self._serial_port = serial_port
         self._baud_rate = baud_rate
         self._poll_interval = poll_interval
+        self._serial_obj = serial_obj  # pre-opened port shared with LoRaSender
         self._stop = threading.Event()
 
     def stop(self) -> None:
@@ -93,12 +95,22 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        with serial.Serial(port=self._serial_port, baudrate=self._baud_rate, timeout=1) as ser:
+        # Reuse sender's already-open port. Opening the same /dev node twice
+        # causes "Resource busy" on macOS/Linux, silently killing the thread.
+        _owns = self._serial_obj is None
+        ser = self._serial_obj if self._serial_obj is not None else serial.Serial(
+            port=self._serial_port, baudrate=self._baud_rate, timeout=1
+        )
+        print(
+            f"[LORA RX] listening on {ser.port} @ {ser.baudrate} baud"
+            f"  shared={not _owns}"
+        )
+        try:
             while not self._stop.is_set():
                 try:
                     raw = ser.readline()
                 except Exception as exc:
-                    print(f"[LORA] serial read error: {exc}")
+                    print(f"[LORA RX] serial read error: {exc}")
                     time.sleep(self._poll_interval)
                     continue
 
@@ -106,13 +118,21 @@ class LoRaReceiver(threading.Thread):
                     continue
 
                 self._handle_line(raw.decode("utf-8", errors="replace"))
+        finally:
+            if _owns:
+                ser.close()
 
     # --- shared ---------------------------------------------------------
     def _handle_line(self, line: str) -> None:
+        stripped = line.strip()
+        # Silently skip ESP32 diagnostic lines (# debug, READY).
+        # Keep TX result: visible — it only appears on TX failure in new firmware.
+        if not stripped or stripped.startswith("#") or stripped.startswith("READY"):
+            return
+        print(f"[LORA RX DEBUG] handle_line: {stripped!r}")
         parsed = parse_message(line)
         if parsed is None:
-            if line.strip():
-                print(f"[LORA] dropped unparseable line: {line!r}")
+            print(f"[LORA RX] dropped unparseable line: {line!r}")
             return
 
         msg_type, fields = parsed

@@ -4,6 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 DB_PATH = BASE_DIR / "giro_bicicleta.db"
+DATABASE_PATH = DB_PATH
 SCHEMA_PATH = BASE_DIR / "schema.sql"
 
 # Station frontend configuration
@@ -52,7 +53,7 @@ MINIMUM_BALANCE_TO_RENT = float(os.getenv("MINIMUM_BALANCE_TO_RENT", "5.00"))
 # STUB_LORA=true routes every LoRa I/O through two append-only files so
 # central and station can round-trip messages on one laptop during dev.
 # Naming below is from central's point of view — mirror of station/config.py.
-STUB_LORA = os.getenv("STUB_LORA", "true").lower() not in ("0", "false", "no")
+STUB_LORA = False
 
 _default_stub_dir = BASE_DIR.parent / ".lora_stub"
 STUB_LORA_DIR = Path(os.getenv("STUB_LORA_DIR", str(_default_stub_dir)))
@@ -62,5 +63,6 @@ STUB_LORA_INBOUND = STUB_LORA_DIR / "to_central.log"
 STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_station.log"
 
 # Real pyserial settings (ignored when STUB_LORA is true).
-LORA_SERIAL_PORT = os.getenv("LORA_SERIAL_PORT", "/dev/ttyUSB0")
+LORA_PORT = "/dev/cu.usbmodem101"
+LORA_SERIAL_PORT = LORA_PORT
 LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))

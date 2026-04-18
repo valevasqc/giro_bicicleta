@@ -1,5 +1,9 @@
 from werkzeug.security import generate_password_hash
-from database import get_connection, init_db
+
+try:
+    from .database import get_connection, init_db
+except ImportError:
+    from database import get_connection, init_db
 
 
 def hash_password(password: str) -> str:

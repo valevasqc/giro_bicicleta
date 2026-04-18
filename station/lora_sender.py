@@ -61,6 +61,11 @@ class LoRaSender:
                 self._serial.write(line.encode("utf-8"))
                 self._serial.flush()
 
+    @property
+    def serial(self):
+        """Expose the open Serial object so the receiver can share it."""
+        return self._serial
+
     def close(self) -> None:
         if self._serial is not None:
             try:
