@@ -25,9 +25,12 @@
                 <h1>Central Admin Dashboard</h1>
                 <p class="muted">Sesión: {{ admin_name }} · Actualiza cada {{ refresh_seconds }}s</p>
             </div>
-            <form method="post" action="{{ url_for('admin_logout_page') }}">
-                <button class="btn btn-secondary logout-btn" type="submit">Cerrar sesión</button>
-            </form>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <a href="{{ url_for('admin_topup_codes_generate') }}" class="btn btn-secondary">Generar códigos de recarga</a>
+                <form method="post" action="{{ url_for('admin_logout_page') }}">
+                    <button class="btn btn-secondary logout-btn" type="submit">Cerrar sesión</button>
+                </form>
+            </div>
         </header>
 
         {% if error_message %}

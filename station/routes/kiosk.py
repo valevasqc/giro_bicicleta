@@ -43,6 +43,9 @@ try:
         RENTAL_DENIED,
         RENTAL_REQUEST,
         RETURN_COMPLETE,
+        TOPUP_FAIL,
+        TOPUP_OK,
+        TOPUP_REQUEST,
         format_message,
     )
 except ImportError:  # fallback if someone runs station directly
@@ -58,12 +61,16 @@ except ImportError:  # fallback if someone runs station directly
         RENTAL_DENIED,
         RENTAL_REQUEST,
         RETURN_COMPLETE,
+        TOPUP_FAIL,
+        TOPUP_OK,
+        TOPUP_REQUEST,
         format_message,
     )
 
 from .. import state
 from ..config import (
     LORA_REPLY_TIMEOUT_SECONDS,
+    MINIMUM_BALANCE_TO_RENT,
     STATION_BIKE_ID,
     STATION_ID,
     STATION_NAME,
@@ -97,6 +104,10 @@ def _reason_to_human(reason: str) -> str:
         "lock_not_confirmed": "El candado no está cerrado correctamente.",
         "timeout": "La estación no recibió respuesta de la central. Intenta de nuevo.",
         "station_unreachable": "No se pudo consultar el estado de la estación.",
+        "insufficient_balance": f"Saldo insuficiente. Necesitas al menos Q{MINIMUM_BALANCE_TO_RENT:.0f} para rentar.",
+        "invalid_code": "Código no válido. Revisa el código e intenta de nuevo.",
+        "already_redeemed": "Este código ya fue utilizado.",
+        "invalid_session": "Tu sesión expiró. Inicia sesión nuevamente.",
     }
     return mapping.get(reason, "Ocurrió un error inesperado. Intenta de nuevo.")
 
@@ -187,18 +198,53 @@ def station_login():
 
 @bp.route("/station/rental-request", methods=["GET"], endpoint="station_rental_request_result")
 def station_rental_request_result():
-    inbox_snapshot = {
-        "LOGIN_OK": state.peek_inbound(LOGIN_OK) is not None,
-        "LOGIN_FAIL": state.peek_inbound(LOGIN_FAIL) is not None,
-        "RENTAL_APPROVED": state.peek_inbound(RENTAL_APPROVED) is not None,
-        "RENTAL_DENIED": state.peek_inbound(RENTAL_DENIED) is not None,
-    }
-    print(f"[KIOSK] rental-request result check  inbox={inbox_snapshot}")
+    login_ok       = state.peek_inbound(LOGIN_OK)
+    login_fail     = state.peek_inbound(LOGIN_FAIL)
+    rental_approved = state.peek_inbound(RENTAL_APPROVED)
+    rental_denied   = state.peek_inbound(RENTAL_DENIED)
+    print(f"[KIOSK] rental-request check  ok={bool(login_ok)} fail={bool(login_fail)} "
+          f"approved={bool(rental_approved)} denied={bool(rental_denied)}")
 
-    # LOGIN_FAIL and RENTAL_DENIED are terminal failures.
-    fail = state.peek_inbound(LOGIN_FAIL) or state.peek_inbound(RENTAL_DENIED)
+    # ── LOGIN_OK + RENTAL_APPROVED → can rent, go to account status ──
+    if login_ok and rental_approved:
+        print("[KIOSK] LOGIN_OK + RENTAL_APPROVED — account_status (rent)")
+        state.take_inbound(LOGIN_OK)
+        state.take_inbound(RENTAL_APPROVED)
+        ok_fields = login_ok["fields"]
+        session["customer_auth"] = {
+            "user_id": ok_fields[1] if len(ok_fields) > 1 else None,
+            "name":    ok_fields[2] if len(ok_fields) > 2 else "Cliente",
+            "token":   ok_fields[3] if len(ok_fields) > 3 else None,
+            "balance": ok_fields[4] if len(ok_fields) > 4 else None,
+        }
+        session["approved_request"] = {"bike_id": STATION_BIKE_ID}
+        session["account_flow"] = "rent"
+        state.clear_pending()
+        return redirect(url_for("kiosk.station_account_status"))
+
+    # ── LOGIN_OK + RENTAL_DENIED(user_has_active_rental) → show return branch ──
+    if login_ok and rental_denied:
+        denied_fields = rental_denied["fields"]
+        reason_code = denied_fields[1] if len(denied_fields) > 1 else ""
+        if reason_code == "user_has_active_rental":
+            print("[KIOSK] LOGIN_OK + RENTAL_DENIED(user_has_active_rental) — account_status (return)")
+            state.take_inbound(LOGIN_OK)
+            state.take_inbound(RENTAL_DENIED)
+            ok_fields = login_ok["fields"]
+            session["customer_auth"] = {
+                "user_id": ok_fields[1] if len(ok_fields) > 1 else None,
+                "name":    ok_fields[2] if len(ok_fields) > 2 else "Cliente",
+                "token":   ok_fields[3] if len(ok_fields) > 3 else None,
+                "balance": ok_fields[4] if len(ok_fields) > 4 else None,
+            }
+            session["account_flow"] = "return"
+            state.clear_pending()
+            return redirect(url_for("kiosk.station_account_status"))
+
+    # ── LOGIN_FAIL or other RENTAL_DENIED → terminal error ──────────
+    fail = login_fail or rental_denied
     if fail:
-        fail_type = LOGIN_FAIL if state.peek_inbound(LOGIN_FAIL) else RENTAL_DENIED
+        fail_type = LOGIN_FAIL if login_fail else RENTAL_DENIED
         state.take_inbound(fail_type)
         state.take_inbound(LOGIN_OK)
         state.take_inbound(RENTAL_APPROVED)
@@ -216,36 +262,7 @@ def station_rental_request_result():
             reason_message=_reason_to_human(reason),
         )
 
-    login_ok = state.peek_inbound(LOGIN_OK)
-    rental_approved = state.peek_inbound(RENTAL_APPROVED)
-
-    if login_ok and rental_approved:
-        print(f"[KIOSK] LOGIN_OK + RENTAL_APPROVED received — unlocking flow")
-        state.take_inbound(LOGIN_OK)
-        state.take_inbound(RENTAL_APPROVED)
-
-        ok_fields = login_ok["fields"]
-        # LOGIN_OK|station_id|user_id|name|token|balance|ts
-        session["customer_auth"] = {
-            "user_id": ok_fields[1] if len(ok_fields) > 1 else None,
-            "name": ok_fields[2] if len(ok_fields) > 2 else "Cliente",
-            "token": ok_fields[3] if len(ok_fields) > 3 else None,
-            "balance": ok_fields[4] if len(ok_fields) > 4 else None,
-        }
-        session["approved_request"] = {"bike_id": STATION_BIKE_ID}
-        state.clear_pending()
-
-        return render_template(
-            "kiosk/request_result.html",
-            station_id=STATION_ID,
-            user_name=session["customer_auth"].get("name") or "Cliente",
-            approved=True,
-            bike_id=STATION_BIKE_ID,
-            reason=None,
-            reason_message="",
-        )
-
-    # Still waiting on central.
+    # ── Still waiting on central ─────────────────────────────────────
     return _render_waiting(
         kind="login",
         result_url=url_for("kiosk.station_rental_request_result"),
@@ -316,6 +333,65 @@ def station_unlocking():
     )
 
 
+@bp.route("/station/ready-to-go", methods=["GET"], endpoint="station_ready_to_go")
+def station_ready_to_go():
+    active_rental = session.get("active_rental") or {}
+    if not active_rental.get("bike_id"):
+        return redirect(url_for("kiosk.station_home"))
+    return render_template(
+        "kiosk/ready_to_go.html",
+        bike_id=active_rental["bike_id"],
+        user_name=(session.get("customer_auth") or {}).get("name") or "Usuario",
+    )
+
+
+@bp.route("/station/account-status", methods=["GET"], endpoint="station_account_status")
+def station_account_status():
+    customer_auth = session.get("customer_auth") or {}
+    if not customer_auth.get("user_id"):
+        return redirect(url_for("kiosk.station_login", notice="session_expired"))
+    has_rental = session.get("account_flow") == "return"
+    try:
+        balance = float(customer_auth.get("balance") or 0.0)
+    except (TypeError, ValueError):
+        balance = 0.0
+    return render_template(
+        "kiosk/account_status.html",
+        station_name=STATION_NAME,
+        user_name=customer_auth.get("name") or "Usuario",
+        has_active_rental=has_rental,
+        active_bike=STATION_BIKE_ID,
+        balance=balance,
+        minimum_balance=MINIMUM_BALANCE_TO_RENT,
+    )
+
+
+@bp.route("/station/return-confirm", methods=["GET", "POST"], endpoint="station_return_confirm")
+def station_return_confirm():
+    customer_auth = session.get("customer_auth") or {}
+    if not customer_auth.get("user_id"):
+        return redirect(url_for("kiosk.station_login", notice="session_expired"))
+
+    if request.method == "POST":
+        bike_id = STATION_BIKE_ID
+        state.take_inbound(RETURN_COMPLETE)
+        state.set_pending("return", {"bike_id": bike_id})
+        msg = format_message(BIKE_DOCKED, STATION_ID, bike_id, _utc_iso())
+        print(f"[KIOSK] sending BIKE_DOCKED for bike={bike_id} (return_confirm)")
+        _lora_send(msg)
+        return _render_waiting(
+            kind="return",
+            result_url=url_for("kiosk.station_return_result"),
+        )
+
+    return render_template(
+        "kiosk/return_confirm.html",
+        station_name=STATION_NAME,
+        user_name=customer_auth.get("name") or "Usuario",
+        active_bike=STATION_BIKE_ID,
+    )
+
+
 @bp.route("/station/ride-active", methods=["GET"], endpoint="station_ride_active")
 def station_ride_active():
     active_rental = session.get("active_rental") or {}
@@ -377,6 +453,8 @@ def station_return_result():
         # taps "Finalizar".
         session.pop("active_rental", None)
         session.pop("customer_auth", None)
+        session.pop("account_flow", None)
+        session.pop("approved_request", None)
         return render_template(
             "kiosk/return_summary.html",
             station_id=STATION_ID,
@@ -396,6 +474,113 @@ def station_return_result():
 
 
 # ---------------------------------------------------------------------
+# Top-up balance
+# ---------------------------------------------------------------------
+
+@bp.route("/station/topup", methods=["GET", "POST"], endpoint="station_topup")
+def station_topup():
+    customer_auth = session.get("customer_auth") or {}
+    if not customer_auth.get("user_id"):
+        return redirect(url_for("kiosk.station_login", notice="session_expired"))
+
+    token = customer_auth.get("token")
+    if not token:
+        return redirect(url_for("kiosk.station_login", notice="session_expired"))
+
+    if request.method == "POST":
+        code = (request.form.get("code") or "").strip().upper()
+        if not code:
+            try:
+                balance = float(customer_auth.get("balance") or 0.0)
+            except (TypeError, ValueError):
+                balance = 0.0
+            return render_template(
+                "kiosk/topup.html",
+                station_name=STATION_NAME,
+                user_name=customer_auth.get("name") or "Usuario",
+                balance=balance,
+                error_message=_reason_to_human("invalid_code"),
+            )
+
+        for mt in (TOPUP_OK, TOPUP_FAIL):
+            state.take_inbound(mt)
+
+        state.set_pending("topup", {"code": code})
+        msg = format_message(TOPUP_REQUEST, STATION_ID, token, code, _utc_iso())
+        print(f"[KIOSK] sending TOPUP_REQUEST code={code!r}")
+        _lora_send(msg)
+        return redirect(url_for("kiosk.station_topup_result"))
+
+    try:
+        balance = float(customer_auth.get("balance") or 0.0)
+    except (TypeError, ValueError):
+        balance = 0.0
+    return render_template(
+        "kiosk/topup.html",
+        station_name=STATION_NAME,
+        user_name=customer_auth.get("name") or "Usuario",
+        balance=balance,
+        error_message=None,
+    )
+
+
+@bp.route("/station/topup-result", methods=["GET"], endpoint="station_topup_result")
+def station_topup_result():
+    ok = state.peek_inbound(TOPUP_OK)
+    fail = state.peek_inbound(TOPUP_FAIL)
+
+    if ok:
+        state.take_inbound(TOPUP_OK)
+        state.clear_pending()
+        fields = ok["fields"]
+        new_balance_str = fields[1] if len(fields) > 1 else "0.00"
+        try:
+            new_balance = float(new_balance_str)
+        except (TypeError, ValueError):
+            new_balance = 0.0
+        # Keep session balance up to date so subsequent screens reflect it.
+        auth = dict(session.get("customer_auth") or {})
+        auth["balance"] = f"{new_balance:.2f}"
+        session["customer_auth"] = auth
+        return render_template(
+            "kiosk/topup.html",
+            station_name=STATION_NAME,
+            user_name=auth.get("name") or "Usuario",
+            balance=new_balance,
+            success_message=f"¡Recarga exitosa! Tu nuevo saldo es Q{new_balance:.2f}.",
+            error_message=None,
+        )
+
+    if fail:
+        state.take_inbound(TOPUP_FAIL)
+        state.clear_pending()
+        fields = fail["fields"]
+        reason = fields[1] if len(fields) > 1 else "invalid_code"
+        customer_auth = session.get("customer_auth") or {}
+        try:
+            balance = float(customer_auth.get("balance") or 0.0)
+        except (TypeError, ValueError):
+            balance = 0.0
+        return render_template(
+            "kiosk/topup.html",
+            station_name=STATION_NAME,
+            user_name=customer_auth.get("name") or "Usuario",
+            balance=balance,
+            error_message=_reason_to_human(reason),
+            success_message=None,
+        )
+
+    pending = state.get_pending()
+    if pending is None:
+        return redirect(url_for("kiosk.station_home"))
+
+    return _render_waiting(
+        kind="topup",
+        result_url=url_for("kiosk.station_topup_result"),
+    )
+
+
+# ---------------------------------------------------------------------
 # Logout / status / error
 # ---------------------------------------------------------------------
 
@@ -404,6 +589,7 @@ def station_logout():
     session.pop("customer_auth", None)
     session.pop("approved_request", None)
     session.pop("active_rental", None)
+    session.pop("account_flow", None)
     state.reset_all()
     return redirect(url_for("kiosk.station_home"))
 
@@ -419,6 +605,9 @@ def station_api_status(station_id):
     charge_connected = bool(gpio.read_charge_connected()) if gpio else False
     available = dock_occupied and charge_connected
 
+    sender = current_app.extensions.get("lora_sender")
+    lora_ok = sender.connected if sender else False
+
     available_bikes = [{"bike_id": STATION_BIKE_ID}] if available else []
     return jsonify({
         "ok": True,
@@ -427,6 +616,7 @@ def station_api_status(station_id):
         "available_bikes": available_bikes,
         "dock_occupied": dock_occupied,
         "charge_connected": charge_connected,
+        "lora_ok": lora_ok,
     })
 
 
@@ -453,6 +643,11 @@ def station_status():
     elif kind == "return":
         if _has(RETURN_COMPLETE):
             return jsonify({"pending": False, "outcome": "complete"})
+    elif kind == "topup":
+        if _has(TOPUP_OK):
+            return jsonify({"pending": False, "outcome": "topup_ok"})
+        if _has(TOPUP_FAIL):
+            return jsonify({"pending": False, "outcome": "topup_fail"})
 
     if age > LORA_REPLY_TIMEOUT_SECONDS:
         state.clear_pending()

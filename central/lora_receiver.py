@@ -28,12 +28,14 @@ except ImportError:
 
 try:
     from .database import get_connection, log_event
-    from .pricing import calculate_duration_minutes, calculate_simulated_cost
-    from .config import MINIMUM_BALANCE_TO_RENT
+    from .pricing import calculate_duration_minutes, calculate_cost
+    from .config import MINIMUM_BALANCE_TO_RENT, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE
+    from .services import topup_service
 except ImportError:
     from database import get_connection, log_event
-    from pricing import calculate_duration_minutes, calculate_simulated_cost
-    from config import MINIMUM_BALANCE_TO_RENT
+    from pricing import calculate_duration_minutes, calculate_cost
+    from config import MINIMUM_BALANCE_TO_RENT, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE
+    import services.topup_service as topup_service
 
 try:
     from common.lora_protocol import (
@@ -47,6 +49,9 @@ try:
         RENTAL_DENIED,
         RENTAL_REQUEST,
         RETURN_COMPLETE,
+        TOPUP_FAIL,
+        TOPUP_OK,
+        TOPUP_REQUEST,
         format_message,
         parse_message,
     )
@@ -64,6 +69,9 @@ except ImportError:
         RENTAL_DENIED,
         RENTAL_REQUEST,
         RETURN_COMPLETE,
+        TOPUP_FAIL,
+        TOPUP_OK,
+        TOPUP_REQUEST,
         format_message,
         parse_message,
     )
@@ -149,34 +157,25 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        # Reuse the sender's already-open port. Opening the same /dev node
-        # twice from the same process causes "Resource busy" on macOS/Linux
-        # and silently kills the receiver thread.
-        shared_ser = getattr(self._sender, "serial", None)
-        _owns = shared_ser is None
-        ser = shared_ser if shared_ser is not None else serial.Serial(
-            port=self._serial_port, baudrate=self._baud_rate, timeout=1
-        )
-        print(
-            f"[LORA RX] listening on {ser.port} @ {ser.baudrate} baud"
-            f"  shared={not _owns}"
-        )
-        try:
-            while not self._stop.is_set():
-                try:
-                    raw = ser.readline()
-                except Exception as exc:
-                    print(f"[LORA RX] serial read error: {exc}")
-                    time.sleep(self._poll_interval)
-                    continue
+        print(f"[LORA RX] serial mode on {self._serial_port}, waiting for connection…")
+        while not self._stop.is_set():
+            # Re-fetch serial from sender each iteration so reconnects are transparent.
+            ser = getattr(self._sender, "serial", None)
+            if ser is None or not ser.is_open:
+                time.sleep(0.5)
+                continue
 
-                if not raw:
-                    continue
+            try:
+                raw = ser.readline()
+            except Exception as exc:
+                print(f"[LORA RX] serial read error: {exc}")
+                time.sleep(self._poll_interval)
+                continue
 
-                self._handle_line(raw.decode("utf-8", errors="replace"))
-        finally:
-            if _owns:
-                ser.close()
+            if not raw:
+                continue
+
+            self._handle_line(raw.decode("utf-8", errors="replace"))
 
     # --- dispatch -------------------------------------------------------
     def _handle_line(self, line: str) -> None:
@@ -205,6 +204,8 @@ class LoRaReceiver(threading.Thread):
                 self._handle_bike_docked(fields)
             elif msg_type == GPS:
                 self._handle_gps(fields)
+            elif msg_type == TOPUP_REQUEST:
+                self._handle_topup_request(fields)
             else:
                 print(f"[LORA] ignoring central-bound or unknown type: {msg_type}")
         except Exception as exc:
@@ -520,10 +521,10 @@ class LoRaReceiver(threading.Thread):
                 return
 
             duration_minutes = calculate_duration_minutes(rental["start_time"], end_time)
-            simulated_cost = calculate_simulated_cost(duration_minutes)
+            simulated_cost = calculate_cost(duration_minutes, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE)
 
             prior_balance = float(rental["user_balance"] or 0.0)
-            balance_remaining = round(max(prior_balance - simulated_cost, 0.0), 2)
+            balance_remaining = round(prior_balance - simulated_cost, 2)
 
             conn.execute(
                 """
@@ -583,6 +584,49 @@ class LoRaReceiver(threading.Thread):
                 "balance_remaining": balance_remaining,
             },
         )
+
+    def _handle_topup_request(self, fields) -> None:
+        # TOPUP_REQUEST|station_id|token|code|ts
+        if len(fields) < 3:
+            print(f"[LORA] TOPUP_REQUEST: expected ≥3 fields, got {len(fields)}")
+            return
+
+        station_id = fields[0].strip()
+        token = fields[1].strip()
+        code = fields[2].strip()
+        print(f"[LORA] TOPUP_REQUEST: station={station_id} code={code!r}")
+
+        with get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT s.user_id
+                FROM sessions s
+                JOIN users u ON u.user_id = s.user_id
+                WHERE s.token = ? AND s.is_active = 1 AND u.is_active = 1
+                  AND s.expires_at > ?
+                """,
+                (token, _utc_iso()),
+            ).fetchone()
+
+            if not row:
+                print(f"[LORA] TOPUP_REQUEST: invalid/expired token")
+                self._sender.send(format_message(TOPUP_FAIL, station_id, "invalid_session", _utc_iso()))
+                return
+
+            user_id = row["user_id"]
+            result = topup_service.redeem_code(conn, user_id, code)
+
+        if result["success"]:
+            print(f"[LORA] TOPUP_OK → {station_id}  amount={result['amount']}  new_balance={result['new_balance']}")
+            self._sender.send(format_message(
+                TOPUP_OK, station_id,
+                f"{result['new_balance']:.2f}",
+                _utc_iso(),
+            ))
+        else:
+            reason = result["error"] or "invalid_code"
+            print(f"[LORA] TOPUP_FAIL → {station_id}: {reason}")
+            self._sender.send(format_message(TOPUP_FAIL, station_id, reason, _utc_iso()))
 
     def _handle_gps(self, fields) -> None:
         # GPS|bike_id|unix_ts|lat|lon

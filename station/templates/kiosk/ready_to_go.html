@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>¡Listo! — Giro Bicicleta</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
+</head>
+<body>
+<div class="kv2-canvas fa" id="kv2">
+  <div class="ready-screen">
+
+    <div class="ready-check">
+      <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
+        <path d="M5 14l7 7L23 7" stroke="#a3d9a5" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <div style="text-align:center;display:flex;flex-direction:column;gap:4px;">
+      <div class="ready-title">¡Bicicleta lista!</div>
+      <div class="ready-sub">
+        Retira <strong>{{ bike_id }}</strong> del andén y disfruta tu viaje.
+      </div>
+    </div>
+
+    <div class="ready-countdown">
+      <div class="ready-cd-lbl">Cerrando sesión en</div>
+      <span class="ready-cd-num" id="cd-num">6</span>
+    </div>
+
+    <form method="post" action="{{ url_for('kiosk.station_logout') }}" id="logout-form">
+      <button type="submit" class="ready-logout-btn">Cerrar sesión ahora</button>
+    </form>
+
+  </div>
+</div>
+<script>
+(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
+
+(function(){
+  var n   = 6;
+  var el  = document.getElementById('cd-num');
+  var frm = document.getElementById('logout-form');
+  function tick(){
+    n--;
+    el.textContent = n;
+    if(n <= 0){ frm.submit(); return; }
+    setTimeout(tick, 1000);
+  }
+  setTimeout(tick, 1000);
+})();
+</script>
+</body>
+</html>

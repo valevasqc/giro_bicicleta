@@ -62,3 +62,6 @@ LORA_REPLY_TIMEOUT_SECONDS = float(os.getenv("LORA_REPLY_TIMEOUT_SECONDS", "8"))
 
 # How often the station emits HEARTBEAT to central.
 HEARTBEAT_INTERVAL_SECONDS = float(os.getenv("HEARTBEAT_INTERVAL_SECONDS", "5"))
+
+# Minimum balance (GTQ) required to start a rental — must match central/config.py.
+MINIMUM_BALANCE_TO_RENT = float(os.getenv("MINIMUM_BALANCE_TO_RENT", "50.00"))

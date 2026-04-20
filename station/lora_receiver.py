@@ -95,32 +95,25 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        # Reuse sender's already-open port. Opening the same /dev node twice
-        # causes "Resource busy" on macOS/Linux, silently killing the thread.
-        _owns = self._serial_obj is None
-        ser = self._serial_obj if self._serial_obj is not None else serial.Serial(
-            port=self._serial_port, baudrate=self._baud_rate, timeout=1
-        )
-        print(
-            f"[LORA RX] listening on {ser.port} @ {ser.baudrate} baud"
-            f"  shared={not _owns}"
-        )
-        try:
-            while not self._stop.is_set():
-                try:
-                    raw = ser.readline()
-                except Exception as exc:
-                    print(f"[LORA RX] serial read error: {exc}")
-                    time.sleep(self._poll_interval)
-                    continue
+        print(f"[LORA RX] serial mode on {self._serial_port}, waiting for connection…")
+        while not self._stop.is_set():
+            # Get the sender's current serial each iteration so reconnects are transparent.
+            ser = getattr(self._serial_obj, "serial", None) if self._serial_obj is not None else None
+            if ser is None or not ser.is_open:
+                time.sleep(0.5)
+                continue
 
-                if not raw:
-                    continue
+            try:
+                raw = ser.readline()
+            except Exception as exc:
+                print(f"[LORA RX] serial read error: {exc}")
+                time.sleep(self._poll_interval)
+                continue
 
-                self._handle_line(raw.decode("utf-8", errors="replace"))
-        finally:
-            if _owns:
-                ser.close()
+            if not raw:
+                continue
+
+            self._handle_line(raw.decode("utf-8", errors="replace"))
 
     # --- shared ---------------------------------------------------------
     def _handle_line(self, line: str) -> None:

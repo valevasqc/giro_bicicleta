@@ -15,6 +15,7 @@ or central) reads line-by-line.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 
 try:
@@ -33,6 +34,7 @@ class LoRaSender:
     ):
         self._stub = stub
         self._lock = threading.Lock()
+        self._serial = None
 
         if stub:
             if stub_path is None:
@@ -40,12 +42,44 @@ class LoRaSender:
             stub_path.parent.mkdir(parents=True, exist_ok=True)
             stub_path.touch(exist_ok=True)
             self._stub_path = stub_path
-            self._serial = None
         else:
             if serial is None:
                 raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
             self._stub_path = None
-            self._serial = serial.Serial(port=serial_port, baudrate=baud_rate, timeout=1)
+            self._serial_port = serial_port
+            self._baud_rate = baud_rate
+            t = threading.Thread(target=self._connect_loop, daemon=True, name="lora-connect")
+            t.start()
+
+    def _connect_loop(self) -> None:
+        while True:
+            with self._lock:
+                already_open = self._serial is not None and self._serial.is_open
+            if already_open:
+                time.sleep(1)
+                continue
+            try:
+                ser = serial.Serial(
+                    port=self._serial_port, baudrate=self._baud_rate, timeout=1
+                )
+                with self._lock:
+                    self._serial = ser
+                print(f"[LORA] connected to {self._serial_port}")
+            except Exception as exc:
+                print(f"[LORA] serial unavailable: {exc} — retrying in 5s")
+                time.sleep(5)
+
+    @property
+    def connected(self) -> bool:
+        if self._stub:
+            return True
+        with self._lock:
+            return self._serial is not None and self._serial.is_open
+
+    @property
+    def serial(self):
+        """Expose the current Serial object so the receiver can share it."""
+        return self._serial
 
     def send(self, message: str) -> None:
         """Send one pre-formatted LoRa message (no trailing newline required)."""
@@ -57,14 +91,20 @@ class LoRaSender:
                     fh.write(line)
                     fh.flush()
                 print(f"[LORA STUB -> central] {line.rstrip()}")
-            else:
+                return
+            if self._serial is None or not self._serial.is_open:
+                print(f"[LORA] no connection — dropping: {line.rstrip()}")
+                return
+            try:
                 self._serial.write(line.encode("utf-8"))
                 self._serial.flush()
-
-    @property
-    def serial(self):
-        """Expose the open Serial object so the receiver can share it."""
-        return self._serial
+            except Exception as exc:
+                print(f"[LORA] send error: {exc} — will reconnect")
+                try:
+                    self._serial.close()
+                except Exception:
+                    pass
+                self._serial = None
 
     def close(self) -> None:
         if self._serial is not None:

@@ -2,8 +2,10 @@ from werkzeug.security import generate_password_hash
 
 try:
     from .database import get_connection, init_db
+    from .services import topup_service
 except ImportError:
     from database import get_connection, init_db
+    import services.topup_service as topup_service
 
 
 def hash_password(password: str) -> str:
@@ -19,6 +21,7 @@ def seed():
         conn.execute("DELETE FROM gps_pings")
         conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM rentals")
+        conn.execute("DELETE FROM topup_codes")
         conn.execute("DELETE FROM users")
         conn.execute("DELETE FROM bikes")
         conn.execute("DELETE FROM stations")
@@ -61,10 +64,32 @@ def seed():
 
         conn.commit()
 
+        # Fixed test code — always the same after every seed.
+        conn.execute(
+            "INSERT INTO topup_codes (code, amount) VALUES (?, ?)",
+            ("TESTCODE", 50.00),
+        )
+        conn.commit()
+
+        codes_q50 = topup_service.generate_codes(conn, 10, 50.00)
+        codes_q100 = topup_service.generate_codes(conn, 5, 100.00)
+
+    print("Seed data inserted.")
+    print("Test customer login: valeria / demo123  (balance: Q50.00)")
+    print("Test admin login: admin / admin123")
+    print("Test station login: station_s1 / station123")
+    print()
+    print("=== Fixed test code (Q50) ===")
+    print("  TESTCODE")
+    print()
+    print("=== Q50 top-up codes ===")
+    for c in codes_q50:
+        print(f"  {c}")
+    print()
+    print("=== Q100 top-up codes ===")
+    for c in codes_q100:
+        print(f"  {c}")
+
 
 if __name__ == "__main__":
     seed()
-    print("Seed data inserted.")
-    print("Test customer login: valeria / demo123")
-    print("Test admin login: admin / admin123")
-    print("Test station login: station_s1 / station123")

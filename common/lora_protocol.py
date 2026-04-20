@@ -14,6 +14,7 @@ RENTAL_REQUEST = "RENTAL_REQUEST"
 BIKE_RELEASED = "BIKE_RELEASED"
 BIKE_DOCKED = "BIKE_DOCKED"
 GPS = "GPS"
+TOPUP_REQUEST = "TOPUP_REQUEST"
 
 # Central -> Station
 LOGIN_OK = "LOGIN_OK"
@@ -21,9 +22,11 @@ LOGIN_FAIL = "LOGIN_FAIL"
 RENTAL_APPROVED = "RENTAL_APPROVED"
 RENTAL_DENIED = "RENTAL_DENIED"
 RETURN_COMPLETE = "RETURN_COMPLETE"
+TOPUP_OK = "TOPUP_OK"
+TOPUP_FAIL = "TOPUP_FAIL"
 
-STATION_TO_CENTRAL = {HEARTBEAT, RENTAL_REQUEST, BIKE_RELEASED, BIKE_DOCKED, GPS}
-CENTRAL_TO_STATION = {LOGIN_OK, LOGIN_FAIL, RENTAL_APPROVED, RENTAL_DENIED, RETURN_COMPLETE}
+STATION_TO_CENTRAL = {HEARTBEAT, RENTAL_REQUEST, BIKE_RELEASED, BIKE_DOCKED, GPS, TOPUP_REQUEST}
+CENTRAL_TO_STATION = {LOGIN_OK, LOGIN_FAIL, RENTAL_APPROVED, RENTAL_DENIED, RETURN_COMPLETE, TOPUP_OK, TOPUP_FAIL}
 ALL_TYPES = STATION_TO_CENTRAL | CENTRAL_TO_STATION
 
 
@@ -77,7 +80,11 @@ def parse_lora_message(raw: str) -> dict | None:
             return {"type": t, "bike_id": parts[1], "ts": parts[2],
                     "lat": float(parts[3]), "lon": float(parts[4])}
         # Central->Station messages (received at station side)
-        if t in ("LOGIN_OK", "LOGIN_FAIL", "RENTAL_APPROVED", "RENTAL_DENIED", "RETURN_COMPLETE"):
+        if t == "TOPUP_REQUEST" and len(parts) == 5:
+            return {"type": t, "station_id": parts[1], "token": parts[2],
+                    "code": parts[3], "ts": parts[4]}
+        if t in ("LOGIN_OK", "LOGIN_FAIL", "RENTAL_APPROVED", "RENTAL_DENIED",
+                 "RETURN_COMPLETE", "TOPUP_OK", "TOPUP_FAIL"):
             return {"type": t, "parts": parts[1:]}
     except (ValueError, IndexError):
         return None

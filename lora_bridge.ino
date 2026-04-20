@@ -6,7 +6,7 @@
 // --- OLED (Heltec LoRa32 V4) ---
 // RST=-1: SSD1306 resets on power-up; software RST pin not needed and
 // may conflict with VEXT power control on the V4.
-// TODO: Screen is blank after flash. Heltec V4 requires VEXT (pin 36?) to be
+// TODO:  ESP32 screen is blank after flash. Heltec V4 requires VEXT (pin 36?) to be
 // driven LOW before Wire.begin() to power the OLED. Add:
 //   pinMode(36, OUTPUT); digitalWrite(36, LOW); delay(50);
 // before Wire.begin() and verify OLED_SDA/SCL pins match your board variant.

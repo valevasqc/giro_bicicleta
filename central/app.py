@@ -6,7 +6,7 @@ from werkzeug.security import check_password_hash
 
 try:
     from .database import get_connection, init_db, log_event
-    from .pricing import calculate_duration_minutes, calculate_simulated_cost
+    from .pricing import calculate_duration_minutes, calculate_cost
     from .lora_receiver import LoRaReceiver
     from .lora_sender import LoRaSender
     from .config import (
@@ -21,10 +21,13 @@ try:
         STUB_LORA_OUTBOUND,
         LORA_SERIAL_PORT,
         LORA_BAUD_RATE,
+        PRICING_RATE_PER_MINUTE,
+        MINIMUM_CHARGE,
     )
+    from .services import topup_service
 except ImportError:
     from database import get_connection, init_db, log_event
-    from pricing import calculate_duration_minutes, calculate_simulated_cost
+    from pricing import calculate_duration_minutes, calculate_cost
     from lora_receiver import LoRaReceiver
     from lora_sender import LoRaSender
     from config import (
@@ -39,7 +42,10 @@ except ImportError:
         STUB_LORA_OUTBOUND,
         LORA_SERIAL_PORT,
         LORA_BAUD_RATE,
+        PRICING_RATE_PER_MINUTE,
+        MINIMUM_CHARGE,
     )
+    import services.topup_service as topup_service
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
@@ -612,6 +618,7 @@ def mobile_complete_return_page():
             "user_name": payload.get("user_name") or "Cliente",
             "duration_minutes": payload.get("duration_minutes"),
             "simulated_cost": payload.get("simulated_cost"),
+            "balance_remaining": payload.get("balance_remaining"),
             "currency": payload.get("currency") or "GTQ",
             "payment_status": payload.get("payment_status") or "captured",
         }
@@ -1284,7 +1291,13 @@ def complete_rental():
 
         end_time = utc_iso(utc_now())
         duration_minutes = calculate_duration_minutes(rental["start_time"], end_time)
-        simulated_cost = calculate_simulated_cost(duration_minutes)
+        simulated_cost = calculate_cost(duration_minutes, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE)
+
+        user_row = conn.execute(
+            "SELECT balance FROM users WHERE user_id = ?", (rental["user_id"],)
+        ).fetchone()
+        prior_balance = float(user_row["balance"] or 0.0) if user_row else 0.0
+        balance_remaining = round(prior_balance - simulated_cost, 2)
 
         conn.execute(
             """
@@ -1306,6 +1319,11 @@ def complete_rental():
                 end_time,
                 rental["rental_id"],
             ),
+        )
+
+        conn.execute(
+            "UPDATE users SET balance = ? WHERE user_id = ?",
+            (balance_remaining, rental["user_id"]),
         )
 
         conn.execute(
@@ -1363,6 +1381,7 @@ def complete_rental():
         "user_name": rental["user_name"],
         "duration_minutes": duration_minutes,
         "simulated_cost": simulated_cost,
+        "balance_remaining": balance_remaining,
         "currency": "GTQ",
         "payment_method": rental["payment_method"],
         "payment_status": "captured"
@@ -1745,6 +1764,82 @@ def tracker_gps_update():
         "last_lon": lon,
         "last_gps_time": gps_time,
     })
+
+@app.route("/admin/topup-codes/generate", methods=["GET", "POST"])
+def admin_topup_codes_generate():
+    admin_auth = get_admin_session()
+    if not admin_auth:
+        return redirect(url_for("admin_login_page", notice="session_expired"))
+
+    generated = []
+    error_message = None
+
+    if request.method == "POST":
+        try:
+            count = int(request.form.get("count") or 0)
+            amount = float(request.form.get("amount") or 0)
+        except (TypeError, ValueError):
+            error_message = "Ingresa un número de códigos y un monto válidos."
+            count, amount = 0, 0
+
+        if not error_message:
+            if count < 1 or count > 200:
+                error_message = "El número de códigos debe ser entre 1 y 200."
+            elif amount <= 0:
+                error_message = "El monto debe ser mayor a 0."
+            else:
+                with get_connection() as conn:
+                    generated = topup_service.generate_codes(conn, count, amount)
+
+    return render_template(
+        "admin/topup_codes.html",
+        admin_name=admin_auth.get("name") or "Admin",
+        generated=generated,
+        error_message=error_message,
+    )
+
+
+@app.route("/mobile/topup", methods=["GET", "POST"])
+def mobile_topup_page():
+    mobile_auth = get_mobile_customer_session()
+    if not mobile_auth:
+        return redirect(url_for("mobile_login_page", notice="session_expired"))
+
+    success_message = None
+    error_message = None
+
+    if request.method == "POST":
+        code = (request.form.get("code") or "").strip()
+        if not code:
+            error_message = "Ingresa un código de recarga."
+        else:
+            with get_connection() as conn:
+                result = topup_service.redeem_code(conn, mobile_auth["user_id"], code)
+            if result["success"]:
+                success_message = f"¡Recarga exitosa! Se acreditaron Q{result['amount']:.2f} a tu cuenta."
+            else:
+                reason = result["error"] or "invalid_code"
+                msgs = {
+                    "invalid_code": "Código no válido. Revisa el código e intenta de nuevo.",
+                    "already_redeemed": "Este código ya fue utilizado.",
+                }
+                error_message = msgs.get(reason, "No se pudo procesar la recarga.")
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT balance FROM users WHERE user_id = ?",
+            (mobile_auth["user_id"],),
+        ).fetchone()
+    current_balance = float(row["balance"] or 0.0) if row else 0.0
+
+    return render_template(
+        "mobile/topup.html",
+        customer_name=mobile_auth.get("name") or "Cliente",
+        current_balance=current_balance,
+        success_message=success_message,
+        error_message=error_message,
+    )
+
 
 if __name__ == "__main__":
     # init_db + LoRa startup already happened at import time above so the

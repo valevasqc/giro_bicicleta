@@ -75,7 +75,7 @@ def create_app() -> Flask:
         stub_path=STUB_LORA_INBOUND if STUB_LORA else None,
         serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
         baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
-        serial_obj=sender.serial if not STUB_LORA else None,
+        serial_obj=sender if not STUB_LORA else None,
     )
     receiver.start()
     app.extensions["lora_receiver"] = receiver

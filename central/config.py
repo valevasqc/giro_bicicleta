@@ -47,7 +47,12 @@ STUB_CHARGE_CONNECTED = os.getenv("STUB_CHARGE_CONNECTED", "true").lower() in ("
 
 # Minimum wallet balance (GTQ) a customer must have for a RENTAL_REQUEST to
 # be approved by the LoRa receiver.
-MINIMUM_BALANCE_TO_RENT = float(os.getenv("MINIMUM_BALANCE_TO_RENT", "5.00"))
+MINIMUM_BALANCE_TO_RENT = float(os.getenv("MINIMUM_BALANCE_TO_RENT", "50.00"))
+
+# Pricing (GTQ). Rate is per minute; unlock fee is charged at ride start.
+PRICING_RATE_PER_MINUTE = float(os.getenv("PRICING_RATE_PER_MINUTE", "1.00"))
+PRICING_UNLOCK_FEE = float(os.getenv("PRICING_UNLOCK_FEE", "0.00"))
+MINIMUM_CHARGE = float(os.getenv("MINIMUM_CHARGE", "1.00"))
 
 # --- LoRa ---------------------------------------------------------------
 # STUB_LORA=true routes every LoRa I/O through two append-only files so

@@ -1,68 +1,71 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Procesando - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Procesando — Giro Bicicleta</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
 </head>
 <body>
-    <main class="flow-shell">
-        <header class="flow-header">
-            <p class="eyebrow">Giro Bicicleta</p>
-            <h1>Procesando...</h1>
-            <p class="subtext">{{ station_name }} · {{ station_id }}</p>
-        </header>
+<div class="kv2-canvas fa" id="kv2">
+  <div class="waiting-screen">
+    <div class="waiting-ring">
+      <div class="waiting-pulse"></div>
+      <div class="waiting-pulse"></div>
+      <div class="waiting-pulse"></div>
+      <div class="waiting-spinner"></div>
+    </div>
+    <div class="waiting-text">
+      <div class="waiting-title" id="w-title">Verificando</div>
+      <div class="waiting-sub"   id="w-sub">Consultando el estado…</div>
+    </div>
+  </div>
+</div>
 
-        <section class="card">
-            <p class="status-title">Consultando a la central</p>
-            <p class="status-detail" id="waiting-status">Esperando respuesta...</p>
-        </section>
-    </main>
+<script>
+(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
 
-    <script>
-        (function() {
-            const pollUrl = "{{ poll_url }}";
-            const resultUrl = "{{ result_url }}";
-            const homeUrl = "{{ url_for('kiosk.station_home') }}";
-            const timeoutSeconds = {{ timeout_seconds }};
-            const statusEl = document.getElementById("waiting-status");
+(function() {
+  var pollUrl     = {{ poll_url | tojson }};
+  var resultUrl   = {{ result_url | tojson }};
+  var homeUrl     = {{ url_for('kiosk.station_home') | tojson }};
+  var kind        = {{ pending_kind | tojson }};
+  var timeout     = {{ timeout_seconds }};
+  var titleEl     = document.getElementById('w-title');
+  var subEl       = document.getElementById('w-sub');
 
-            function redirect(url) {
-                window.location.href = url;
-            }
+  var labels = {
+    login:  { title: 'Verificando cuenta',    sub: 'Consultando el estado de tu cuenta…' },
+    return: { title: 'Procesando devolución', sub: 'Registrando retorno en el sistema…' },
+    topup:  { title: 'Procesando recarga',    sub: 'Validando código y acreditando saldo…' },
+  };
+  var lbl = labels[kind] || { title: 'Procesando…', sub: 'Espera un momento…' };
+  titleEl.textContent = lbl.title;
+  subEl.textContent   = lbl.sub;
 
-            function poll() {
-                fetch(pollUrl, { cache: "no-store" })
-                    .then((r) => r.json())
-                    .then((data) => {
-                        if (!data.pending) {
-                            if (data.outcome === "timeout") {
-                                statusEl.textContent =
-                                    "La central no respondió. Vuelve al inicio e intenta de nuevo.";
-                                setTimeout(() => redirect(homeUrl), 3000);
-                                return;
-                            }
-                            redirect(resultUrl);
-                            return;
-                        }
-                        setTimeout(poll, 1000);
-                    })
-                    .catch(() => {
-                        // Network hiccup against our own Flask — retry.
-                        setTimeout(poll, 1000);
-                    });
-            }
+  function redirect(url) { window.location.href = url; }
 
-            poll();
-        })();
-    </script>
+  function poll() {
+    fetch(pollUrl, { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data.pending) {
+          if (data.outcome === 'timeout') {
+            subEl.textContent = 'Sin respuesta. Vuelve al inicio e intenta de nuevo.';
+            setTimeout(function(){ redirect(homeUrl); }, 3000);
+            return;
+          }
+          redirect(resultUrl);
+          return;
+        }
+        setTimeout(poll, 1000);
+      })
+      .catch(function(){ setTimeout(poll, 1000); });
+  }
+
+  poll();
+})();
+</script>
 </body>
 </html>

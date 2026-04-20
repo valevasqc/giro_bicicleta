@@ -1,43 +1,109 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Resultado de solicitud - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/station_flow.css') }}" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Resultado — Giro Bicicleta</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
 </head>
 <body>
-    <main class="flow-shell">
-        <header class="flow-header">
-            <p class="eyebrow">Giro Bicicleta</p>
-            <h1>Solicitud de renta</h1>
-            <p class="subtext">{{ user_name }} · Estación {{ station_id }}</p>
-        </header>
+<div class="kv2-canvas sa" id="kv2">
+  <div class="kv2-split">
 
-        <section class="card result-card {% if approved %}approved{% else %}rejected{% endif %}">
-            {% if approved %}
-                <p class="status-title">Solicitud aprobada</p>
-                <p class="status-detail">Bicicleta asignada: <strong>{{ bike_id }}</strong></p>
-                <a class="primary-btn" href="{{ url_for('kiosk.station_payment') }}">Continuar</a>
-            {% else %}
-                <p class="status-title">No se pudo aprobar la solicitud</p>
-                <p class="status-detail">{{ reason_message }}</p>
-            {% endif %}
-        </section>
-
-        <div class="actions-grid">
-            <a class="secondary-btn" href="{{ url_for('kiosk.station_home') }}">Volver</a>
-            <form method="post" action="{{ url_for('kiosk.station_logout') }}">
-                <button type="submit" class="danger-btn logout-btn">Cerrar sesión</button>
-            </form>
+    <!-- Left panel -->
+    <div class="kv2-left">
+      <div class="lp-logo">
+        <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
+        <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+      </div>
+      <div class="lp-station">
+        <div class="lp-label">Estación</div>
+        <div class="lp-sname">{{ station_id }}</div>
+      </div>
+      {% if user_name %}
+      <div class="lp-user">
+        <div class="lp-label">Usuario</div>
+        <div class="lp-uname">{{ user_name }}</div>
+      </div>
+      {% endif %}
+      <div class="lp-spacer"></div>
+      <div class="lp-steps">
+        <div class="lp-steps-hdr">Progreso</div>
+        <div class="lp-step">
+          <div class="lp-dot done">
+            <svg width="10" height="10" viewBox="0 0 28 28" fill="none"><path d="M5 14l7 7L23 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="lp-step-txt done">Acceso</span>
         </div>
-    </main>
+        <div class="lp-step">
+          <div class="lp-dot active"><span class="lp-step-num">2</span></div>
+          <span class="lp-step-txt active">Solicitud</span>
+        </div>
+        <div class="lp-step">
+          <div class="lp-dot future"><span class="lp-step-num">3</span></div>
+          <span class="lp-step-txt future">Pago</span>
+        </div>
+        <div class="lp-step">
+          <div class="lp-dot future"><span class="lp-step-num">4</span></div>
+          <span class="lp-step-txt future">¡Listo!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right pane -->
+    <div class="kv2-right" style="gap:12px;">
+      <div class="c-eyebrow {% if approved %}grn{% else %}red{% endif %}">
+        Resultado de solicitud
+      </div>
+
+      <div class="result-card {% if approved %}approved{% else %}rejected{% endif %}">
+        <div class="result-icon {% if approved %}approved{% else %}rejected{% endif %}">
+          {% if approved %}
+            <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+              <path d="M5 14l7 7L23 7" stroke="#3f6736" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {% else %}
+            <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+              <path d="M7 7l14 14M21 7L7 21" stroke="#c44" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {% endif %}
+        </div>
+        <div style="flex:1;">
+          <div class="result-title">
+            {% if approved %}Solicitud aprobada{% else %}No se pudo aprobar{% endif %}
+          </div>
+          {% if approved %}
+            <div class="result-detail">
+              Bicicleta asignada: <strong style="color:#2f2925;">{{ bike_id }}</strong>
+            </div>
+          {% else %}
+            <div class="result-detail">{{ reason_message }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if approved %}
+        <a class="btn-primary red" href="{{ url_for('kiosk.station_payment') }}">
+          Continuar al pago
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      {% else %}
+        <div class="btn-pair">
+          <a class="bp-retry" href="{{ url_for('kiosk.station_login') }}">← Reintentar</a>
+          <form method="post" action="{{ url_for('kiosk.station_logout') }}" style="flex:1;display:flex;">
+            <button type="submit" class="bp-danger" style="width:100%;">Cerrar sesión</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+<script>
+(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
+</script>
 </body>
 </html>

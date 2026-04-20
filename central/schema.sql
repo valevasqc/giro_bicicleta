@@ -85,6 +85,15 @@ CREATE TABLE IF NOT EXISTS gps_pings (
     lon        REAL NOT NULL
 );
 
+-- Pre-sold recharge cards. code is printed on the physical card; amount in GTQ.
+CREATE TABLE IF NOT EXISTS topup_codes (
+    code         TEXT PRIMARY KEY,
+    amount       REAL NOT NULL,
+    is_redeemed  INTEGER NOT NULL DEFAULT 0,
+    redeemed_by  TEXT REFERENCES users(user_id),
+    redeemed_at  TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_gps_pings_rental_id ON gps_pings(rental_id);
 CREATE INDEX IF NOT EXISTS idx_gps_pings_bike_id   ON gps_pings(bike_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Cargar Tokens — Giro Bicicleta</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
+</head>
+<body>
+<div class="kv2-canvas sa" id="kv2">
+  <div class="kv2-split">
+
+    <!-- Left panel -->
+    <div class="kv2-left">
+      <div class="lp-logo">
+        <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
+        <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+      </div>
+      <div class="lp-station">
+        <div class="lp-label">Estación</div>
+        <div class="lp-sname">{{ station_name }}</div>
+      </div>
+      <div class="lp-user">
+        <div class="lp-label">Usuario</div>
+        <div class="lp-uname">{{ user_name }}</div>
+      </div>
+      <div class="lp-spacer"></div>
+      <div class="lp-user" style="margin-top:0;">
+        <div class="lp-label">Tokens actuales</div>
+        <div class="lp-uname" style="font-size:20px;">
+          {% if balance < 0 %}
+            <span style="color:#c0392b;">Q{{ "%.2f"|format(balance) }}</span>
+          {% else %}
+            Q{{ "%.2f"|format(balance) }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right pane -->
+    <div class="kv2-right" style="gap:14px;">
+      <div>
+        <div class="c-eyebrow" style="color:#5a7fa8;">Recarga de tokens</div>
+        <div class="c-title">Ingresa tu código</div>
+      </div>
+
+      {% if success_message is defined and success_message %}
+        <div style="background:#eaf5ea;border:1px solid #6b9e74;border-radius:8px;padding:14px 16px;color:#2d5a30;font-size:14px;font-weight:600;">
+          {{ success_message }}
+        </div>
+        <a class="btn-primary" href="{{ url_for('kiosk.station_account_status') }}"
+           style="background:#6b9e74;border-color:#6b9e74;display:flex;align-items:center;gap:8px;justify-content:center;">
+          Continuar
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      {% else %}
+        <div class="c-hint">
+          Ingresa el código de 8 caracteres impreso en tu tarjeta de recarga.
+        </div>
+
+        {% if error_message %}
+          <div style="background:#fdecea;border:1px solid #e74c3c;border-radius:8px;padding:10px 14px;color:#922b21;font-size:13px;font-weight:600;">
+            {{ error_message }}
+          </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('kiosk.station_topup') }}" style="display:flex;flex-direction:column;gap:12px;">
+          <input
+            type="text"
+            name="code"
+            placeholder="Ej: AB12CD34"
+            maxlength="8"
+            autocomplete="off"
+            autocapitalize="characters"
+            style="font-size:22px;text-align:center;letter-spacing:4px;text-transform:uppercase;padding:12px 16px;border:2px solid #d4cec8;border-radius:8px;outline:none;font-family:monospace;width:100%;box-sizing:border-box;"
+          />
+          <button type="submit" class="btn-primary" style="background:#5a7fa8;border-color:#5a7fa8;">
+            Canjear código
+          </button>
+        </form>
+      {% endif %}
+
+      <a href="{{ url_for('kiosk.station_account_status') }}" class="btn-secondary" style="text-align:center;display:block;">
+        Cancelar — volver
+      </a>
+    </div>
+
+  </div>
+</div>
+<script>
+(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
+</script>
+</body>
+</html>

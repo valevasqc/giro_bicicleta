@@ -1,50 +1,80 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Giro Bicicleta - Estación {{ station_id }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/idle.css') }}" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Giro Bicicleta — Estación {{ station_id }}</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
 </head>
 <body data-station-id="{{ station_id }}">
-    <main class="kiosk">
-        <header class="kiosk-header">
-            <div class="brand-row">
-                <p class="eyebrow">Giro Bicicleta</p>
-                <img
-                    class="brand-logo"
-                    src="{{ url_for('static', filename='img/logo.jpg') }}"
-                    alt="Logo de Giro Bicicleta"
-                />
-            </div>
-            <h1 id="station-name">Cargando estación...</h1>
-            <p class="subtext">ID de estación: <span id="station-id">{{ station_id }}</span></p>
-        </header>
+<div class="kv2-canvas sa" id="kv2">
+  <div class="idle-screen">
 
-        <section class="status-card" aria-live="polite">
-            <h2>Bicicletas disponibles</h2>
-            <p class="count" id="available-count">--</p>
-            <p class="status-hint">Listas para desbloquear en esta estación</p>
-        </section>
+    <div id="lora-banner" style="display:none;background:#7a2f2f;color:#fff;font-size:11px;font-weight:700;text-align:center;padding:5px 12px;letter-spacing:0.03em;">
+      Sin conexión con la central — reconectando…
+    </div>
 
-        <section class="bikes-card">
-            <h2>Lista de bicicletas</h2>
-            <ul id="bike-list" class="bike-list">
-                <li class="placeholder">Cargando bicicletas...</li>
-            </ul>
-        </section>
+    <div class="idle-topbar"></div>
 
-        <a id="start-login-btn" class="start-btn" href="{{ url_for('kiosk.station_login') }}">Empieza aquí</a>
-        <p id="error-message" class="error-message" hidden></p>
-    </main>
+    <header class="idle-header">
+      <div class="idle-brand">
+        <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
+        <div>
+          <div class="idle-bname">Giro Bicicleta</div>
+          <div class="idle-bsub">Sistema de bicicletas compartidas</div>
+        </div>
+      </div>
+      <div class="idle-clock-wrap">
+        <div class="idle-clock" id="kv2-clock">--:--</div>
+        <div class="idle-date"  id="kv2-date"></div>
+      </div>
+    </header>
 
-    <script src="{{ url_for('static', filename='js/kiosk/idle.js') }}"></script>
+    <div class="idle-main">
+      <div class="idle-left-col">
+        <div class="idle-avail-lbl">Disponibles ahora</div>
+        <div class="idle-count-row">
+          <div class="idle-count" id="kv2-count">--</div>
+          <div class="idle-count-labels">
+            <div class="idle-count-big">bicicletas</div>
+            <div class="idle-count-sub" id="kv2-station-name">en esta estación</div>
+          </div>
+        </div>
+        <div class="idle-dot-row">
+          <div class="idle-dot"></div>
+          <span class="idle-dot-lbl">Estación operativa</span>
+        </div>
+      </div>
+
+      <div class="idle-divider"></div>
+
+      <div class="idle-right-col">
+        <div class="idle-grid-lbl">Andén — bicicletas disponibles</div>
+        <div class="idle-bike-grid" id="kv2-bike-grid">
+          <div class="idle-empty">Cargando bicicletas…</div>
+        </div>
+      </div>
+    </div>
+
+    <a class="idle-cta" href="{{ url_for('kiosk.station_login') }}" id="kv2-cta">
+      Empieza aquí
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+    <p id="kv2-error" style="display:none;margin:0 22px 8px;font-size:10px;color:#8f1f1c;font-weight:600;"></p>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/kiosk/idle.js') }}"></script>
+<script>
+(function(){
+  var c=document.getElementById('kv2');
+  function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}
+  s();window.addEventListener('resize',s);
+})();
+</script>
 </body>
 </html>
