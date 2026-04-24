@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Mis Viajes - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+</head>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
+    <main class="mobile-shell">
+        <div style="display:grid;gap:0.85rem;">
+
+            <h1 style="margin:0.2rem 0 0;">Mis Viajes</h1>
+
+            {% if active_rental %}
+                <div class="active-ride-banner">
+                    <div>
+                        <p class="banner-label">En curso ahora</p>
+                        <p class="banner-title">{{ active_rental.bike_id }} · desde {{ active_rental.start_station_id }}</p>
+                    </div>
+                    <a class="banner-btn" href="{{ url_for('mobile_ride_active_page') }}">Ver viaje</a>
+                </div>
+            {% endif %}
+
+            {% if rides %}
+                <div style="display:grid;gap:0.65rem;">
+                    {% for ride in rides %}
+                        <article class="ride-card">
+                            <p class="ride-route">
+                                {{ ride.start_station_name or ride.start_station_id }}
+                                <span class="arrow">→</span>
+                                {{ ride.end_station_name or ride.end_station_id or "—" }}
+                            </p>
+                            <div class="ride-meta-row">
+                                <span class="ride-meta">{{ ride.bike_id }}</span>
+                                {% if ride.duration_minutes is not none %}
+                                    <span class="ride-meta">{{ ride.duration_minutes|int }} min</span>
+                                {% endif %}
+                                {% if ride.simulated_cost is not none %}
+                                    <span class="ride-meta ride-cost">Q{{ "%.2f"|format(ride.simulated_cost) }}</span>
+                                {% endif %}
+                            </div>
+                            <p class="ride-date">{{ ride.start_time_fmt }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-box">Aún no tienes viajes completados. ¡Renta tu primera bici!</p>
+            {% endif %}
+
+        </div>
+    </main>
+</body>
+</html>

@@ -2,35 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ride Active - Giro Bicicleta</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Viaje activo - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
 </head>
-<body>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
     <main class="mobile-shell">
-        <section class="mobile-card">
-            <div class="brand-row">
-                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
-                <p class="eyebrow">Viaje activo</p>
+        <div style="display:grid;gap:0.85rem;">
+
+            <div>
+                <p class="eyebrow" style="margin-bottom:0.2rem;">Viaje activo</p>
+                <h1 style="margin:0;">¡Buen viaje!</h1>
             </div>
-            <h1>Disfruta tu ruta, {{ customer_name }}</h1>
-            <p class="muted">Bicicleta: <strong>{{ rental.bike_id }}</strong></p>
-            <p class="muted">Inicio: {{ rental.start_time }}</p>
-            <p class="muted">Estado de pago: {{ rental.payment_status }}</p>
-            <p class="hint">Devuelve la bicicleta en una estación para finalizar tu viaje.</p>
-            <form method="post" action="{{ url_for('mobile_complete_return_page') }}">
-                <input type="hidden" name="station_id" value="{{ rental.start_station_id }}" />
-                <button type="submit" class="btn btn-primary">Completar retorno en esta estación</button>
-            </form>
+
+            <section class="mobile-card accent-green">
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Bicicleta</span>
+                    <span class="value">{{ rental.bike_id }}</span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Inicio</span>
+                    <span class="value">{{ rental.start_station_id }}</span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;border-bottom:none;">
+                    <span class="label">Hora de salida</span>
+                    <span class="value">{{ rental.start_time }}</span>
+                </div>
+            </section>
+
+            <p class="hint">Devuelve la bici en cualquier estación para finalizar el viaje y registrar el cobro.</p>
+
             <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Ver estaciones</a>
-            <form method="post" action="{{ url_for('mobile_logout_page') }}">
-                <button type="submit" class="btn btn-primary logout-btn">Cerrar sesión</button>
-            </form>
-        </section>
+
+        </div>
     </main>
 </body>
 </html>

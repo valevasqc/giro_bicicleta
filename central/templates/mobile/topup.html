@@ -1,56 +1,54 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cargar Saldo — Giro Bicicleta</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: sans-serif; padding: 20px; max-width: 480px; margin: 0 auto; background: #f8f6f3; }
-    h2 { font-size: 20px; margin-bottom: 2px; }
-    .sub { color: #666; font-size: 13px; margin-bottom: 20px; }
-    .balance-card { background: #fff; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; border: 1px solid #e0dbd4; }
-    .balance-label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-    .balance-val { font-size: 28px; font-weight: 800; margin-top: 2px; }
-    .balance-val.neg { color: #c0392b; }
-    .balance-neg-note { font-size: 12px; color: #c0392b; margin-top: 4px; font-weight: 600; }
-    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-    input[type=text] { width: 100%; padding: 12px 14px; font-size: 20px; text-align: center; letter-spacing: 4px; text-transform: uppercase; font-family: monospace; border: 2px solid #d4cec8; border-radius: 8px; background: #fff; }
-    button { width: 100%; margin-top: 14px; padding: 13px; background: #2c3e50; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
-    .success { background: #eaf5ea; border: 1px solid #6b9e74; border-radius: 8px; padding: 12px 16px; color: #2d5a30; font-size: 14px; font-weight: 600; margin-bottom: 16px; }
-    .error { background: #fdecea; border: 1px solid #e74c3c; border-radius: 8px; padding: 10px 14px; color: #922b21; font-size: 13px; margin-bottom: 16px; }
-    .back { display: inline-block; margin-top: 16px; font-size: 13px; color: #2c3e50; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Recargar Saldo - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
 </head>
-<body>
-  <h2>Cargar Saldo</h2>
-  <p class="sub">Hola, {{ customer_name }}.</p>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
 
-  <div class="balance-card">
-    <div class="balance-label">Tu saldo actual</div>
-    {% if current_balance < 0 %}
-      <div class="balance-val neg">Q{{ "%.2f"|format(current_balance) }}</div>
-      <div class="balance-neg-note">Saldo negativo — debes recargar antes de tu próxima renta.</div>
-    {% else %}
-      <div class="balance-val">Q{{ "%.2f"|format(current_balance) }}</div>
-    {% endif %}
-  </div>
+    <main class="mobile-shell">
+        <section class="mobile-card">
+            <p class="eyebrow">Recarga</p>
+            <h1>Recargar saldo</h1>
 
-  {% if success_message %}
-    <div class="success">{{ success_message }}</div>
-  {% endif %}
+            <div class="balance-hero {% if current_balance < 5 %}low{% endif %}">
+                <p class="label">Saldo actual</p>
+                <p class="amount">Q{{ "%.2f"|format(current_balance) }}</p>
+                {% if current_balance < 0 %}
+                    <p class="warn-note">Saldo negativo — recarga antes de tu próxima renta.</p>
+                {% endif %}
+            </div>
 
-  {% if error_message %}
-    <div class="error">{{ error_message }}</div>
-  {% endif %}
+            {% if success_message %}
+                <p class="info-box">{{ success_message }}</p>
+            {% endif %}
 
-  <form method="post" action="/mobile/topup">
-    <label for="code">Código de recarga (8 caracteres)</label>
-    <input type="text" id="code" name="code" maxlength="8" autocomplete="off" placeholder="AB12CD34"/>
-    <button type="submit">Canjear código</button>
-  </form>
+            {% if error_message %}
+                <p class="error-box">{{ error_message }}</p>
+            {% endif %}
 
-  <br/>
-  <a class="back" href="/mobile/stations">← Volver a estaciones</a>
+            <form method="post" action="{{ url_for('mobile_topup_page') }}" class="form-grid">
+                <label for="code">Código de recarga</label>
+                <input
+                    type="text"
+                    id="code"
+                    name="code"
+                    class="code-input"
+                    maxlength="8"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="AB12CD34"
+                />
+                <button type="submit" class="btn btn-primary">Canjear código</button>
+            </form>
+        </section>
+    </main>
 </body>
 </html>

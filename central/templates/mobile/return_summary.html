@@ -2,39 +2,59 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Resumen de retorno - Giro Bicicleta</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Viaje finalizado - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
 </head>
-<body>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
     <main class="mobile-shell">
-        <section class="mobile-card">
-            <div class="brand-row">
-                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
-                <p class="eyebrow">Retorno completado</p>
+        <div style="display:grid;gap:0.85rem;">
+
+            <div>
+                <p class="eyebrow" style="margin-bottom:0.2rem;">Retorno completado</p>
+                <h1 style="margin:0;">¡Gracias por usar Giro!</h1>
             </div>
-            <h1>Gracias por usar Giro Bicicleta</h1>
-            <p class="muted">Estación: {{ station_name }} ({{ station_id }})</p>
 
-            <p class="muted">Bicicleta: <strong>{{ summary.bike_id }}</strong></p>
-            <p class="muted">Usuario: {{ summary.user_name }}</p>
-            <p class="muted">Duración (min): {{ summary.duration_minutes if summary.duration_minutes is not none else "—" }}</p>
-            <p class="muted">
-                Costo simulado:
-                {% if summary.simulated_cost is not none %}
-                    {{ summary.simulated_cost }} {{ summary.currency }}
-                {% else %}
-                    Final pricing not configured yet
-                {% endif %}
-            </p>
-            <p class="muted">Estado de pago: {{ summary.payment_status }}</p>
+            <section class="mobile-card accent-green">
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Bicicleta</span>
+                    <span class="value">{{ summary.bike_id }}</span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Estación de retorno</span>
+                    <span class="value">{{ station_name }} ({{ station_id }})</span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Duración</span>
+                    <span class="value">
+                        {% if summary.duration_minutes is not none %}
+                            {{ summary.duration_minutes|int }} min
+                        {% else %}
+                            —
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;border-bottom:none;">
+                    <span class="label">Cobro</span>
+                    <span class="value" style="font-size:1.1rem;font-weight:800;">
+                        {% if summary.simulated_cost is not none %}
+                            Q{{ "%.2f"|format(summary.simulated_cost) }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </span>
+                </div>
+            </section>
 
-            <a class="btn btn-primary" href="{{ url_for('mobile_home_page') }}">Finalizar</a>
-        </section>
+            <a class="btn btn-primary" href="{{ url_for('mobile_stations_page') }}">Listo</a>
+
+        </div>
     </main>
 </body>
 </html>

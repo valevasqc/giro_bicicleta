@@ -2,74 +2,77 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Disponibilidad - Giro Bicicleta</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>{{ station.name if station else station_id }} - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
 </head>
-<body>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
     <main class="mobile-shell">
-        <section class="mobile-card">
-            <div class="brand-row">
-                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
-                <p class="eyebrow">Estación {{ station_id }}</p>
+        <div style="display:grid;gap:0.85rem;">
+
+            <div>
+                <p class="eyebrow" style="margin-bottom:0.2rem;">{{ station_id }}</p>
+                <h1 style="margin:0;">{{ station.name if station else "Estación" }}</h1>
             </div>
-            <h1>{{ station.name if station else "Estado de estación" }}</h1>
 
             {% if error_message %}
                 <p class="error-box">{{ error_message }}</p>
             {% endif %}
 
             {% if active_bike_id %}
-                <section class="list-item">
-                    <p class="item-title">Viaje activo: {{ active_bike_id }}</p>
-                    <p class="item-sub">Completa el retorno en esta estación.</p>
+                <section class="mobile-card accent-green">
+                    <p class="eyebrow">Viaje activo · {{ active_bike_id }}</p>
+                    <p class="muted">Devuelve la bicicleta aquí para finalizar tu viaje.</p>
                     <form method="post" action="{{ url_for('mobile_complete_return_page') }}" class="request-form">
                         <input type="hidden" name="station_id" value="{{ station_id }}" />
-                        <button type="submit" class="btn btn-primary">Completar retorno aquí</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Completar retorno aquí</button>
                         <p class="loading-note" hidden>Procesando retorno...</p>
                     </form>
                 </section>
             {% endif %}
 
-            <p class="muted">Bicicletas disponibles: {{ bikes|length }}</p>
-            <div class="list-grid">
-                {% for bike in bikes %}
-                    <article class="list-item bike-item">
-                        <p class="item-title">{{ bike.bike_id }}</p>
-                        <p class="item-sub">Lista para rentar</p>
-                        <form method="post" action="{{ url_for('mobile_request_rental_page') }}" class="request-form">
-                            <input type="hidden" name="station_id" value="{{ station_id }}" />
-                            <input type="hidden" name="bike_id" value="{{ bike.bike_id }}" />
-                            <button type="submit" class="btn btn-primary">Solicitar renta</button>
-                            <p class="loading-note" hidden>Enviando solicitud...</p>
-                        </form>
-                    </article>
-                {% else %}
-                    <p class="empty-box">No hay bicicletas disponibles en este momento. Prueba con otra estación.</p>
-                {% endfor %}
-            </div>
+            {% if not active_bike_id %}
+                <div>
+                    <p class="muted" style="margin-bottom:0.65rem;">
+                        {{ bikes|length }} bicicleta{% if bikes|length != 1 %}s{% endif %} disponible{% if bikes|length != 1 %}s{% endif %}
+                    </p>
+                    <div class="list-grid">
+                        {% for bike in bikes %}
+                            <article class="list-item bike-item">
+                                <p class="item-title">{{ bike.bike_id }}</p>
+                                <p class="item-sub">Lista para rentar</p>
+                                <form method="post" action="{{ url_for('mobile_request_rental_page') }}" class="request-form">
+                                    <input type="hidden" name="station_id" value="{{ station_id }}" />
+                                    <input type="hidden" name="bike_id" value="{{ bike.bike_id }}" />
+                                    <button type="submit" class="btn btn-primary btn-sm">Solicitar renta</button>
+                                    <p class="loading-note" hidden>Enviando solicitud...</p>
+                                </form>
+                            </article>
+                        {% else %}
+                            <p class="empty-box">No hay bicicletas disponibles. Prueba con otra estación.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
 
-            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Cambiar estación</a>
-        </section>
+            <a class="btn btn-ghost btn-sm" href="{{ url_for('mobile_stations_page') }}">← Cambiar estación</a>
+
+        </div>
     </main>
     <script>
         (function () {
-            const forms = document.querySelectorAll(".request-form");
-            forms.forEach(function (form) {
+            document.querySelectorAll(".request-form").forEach(function (form) {
                 form.addEventListener("submit", function () {
                     const button = form.querySelector("button");
                     const note = form.querySelector(".loading-note");
-                    if (button) {
-                        button.disabled = true;
-                        button.textContent = "Procesando...";
-                    }
-                    if (note) {
-                        note.hidden = false;
-                    }
+                    if (button) { button.disabled = true; button.textContent = "Procesando..."; }
+                    if (note) { note.hidden = false; }
                 });
             });
         })();

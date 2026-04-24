@@ -221,6 +221,14 @@ def sync_mobile_active_rental_from_db(mobile_auth):
     return active_rental
 
 
+def get_mobile_user_balance(user_id):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT balance FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    return float(row["balance"] or 0.0) if row else 0.0
+
+
 def get_station_name_by_id(station_id):
     with get_connection() as conn:
         station = conn.execute(
@@ -417,9 +425,13 @@ def mobile_stations_page():
             ).fetchall()
         ]
 
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
+
     return render_template(
         "mobile/stations.html",
         customer_name=mobile_auth.get("name") or "Cliente",
+        balance=balance,
+        active_tab="stations",
         stations=stations,
         active_bike_id=active_bike_id,
     )
@@ -449,6 +461,8 @@ def mobile_station_detail_page(station_id):
     station, bikes, reason = load_mobile_station_detail(station_id)
     error_message = reason_to_human_message(reason) if reason else None
 
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
+
     return render_template(
         "mobile/station_detail.html",
         station_id=station_id,
@@ -456,6 +470,9 @@ def mobile_station_detail_page(station_id):
         bikes=bikes,
         error_message=error_message,
         active_bike_id=active_bike_id,
+        customer_name=mobile_auth.get("name") or "Cliente",
+        balance=balance,
+        active_tab="stations",
     )
 
 
@@ -559,20 +576,28 @@ def mobile_payment_page():
             return redirect(url_for("mobile_ride_active_page"))
 
         reason = payload.get("reason") or "station_unreachable"
+        balance = get_mobile_user_balance(mobile_auth["user_id"])
         return render_template(
             "mobile/payment.html",
             station_id=station_id,
             station_name=station_name,
             bike_id=bike_id,
             error_message=reason_to_human_message(reason),
+            customer_name=mobile_auth.get("name") or "Cliente",
+            balance=balance,
+            active_tab="stations",
         )
 
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
     return render_template(
         "mobile/payment.html",
         station_id=station_id,
         station_name=station_name,
         bike_id=bike_id,
         error_message=None,
+        customer_name=mobile_auth.get("name") or "Cliente",
+        balance=balance,
+        active_tab="stations",
     )
 
 
@@ -586,10 +611,13 @@ def mobile_ride_active_page():
     if not active_rental or not active_rental.get("bike_id"):
         return redirect(url_for("mobile_stations_page"))
 
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
     return render_template(
         "mobile/ride_active.html",
         customer_name=mobile_auth.get("name") or "Cliente",
         rental=active_rental,
+        balance=balance,
+        active_tab="rides",
     )
 
 
@@ -623,19 +651,27 @@ def mobile_complete_return_page():
             "payment_status": payload.get("payment_status") or "captured",
         }
         clear_mobile_session_data()
+        balance_after = float(payload.get("balance_remaining") or 0.0)
         return render_template(
             "mobile/return_summary.html",
             station_id=target_station_id,
             station_name=target_station_name,
             summary=summary,
+            customer_name=summary["user_name"],
+            balance=balance_after,
+            active_tab="rides",
         )
 
     reason = payload.get("reason") or "station_unreachable"
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
     return render_template(
         "mobile/complete_error.html",
         station_id=target_station_id,
         station_name=target_station_name,
         error_message=reason_to_human_message(reason),
+        customer_name=mobile_auth.get("name") or "Cliente",
+        balance=balance,
+        active_tab="stations",
     )
 
 
@@ -1825,19 +1861,89 @@ def mobile_topup_page():
                 }
                 error_message = msgs.get(reason, "No se pudo procesar la recarga.")
 
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT balance FROM users WHERE user_id = ?",
-            (mobile_auth["user_id"],),
-        ).fetchone()
-    current_balance = float(row["balance"] or 0.0) if row else 0.0
+    balance = get_mobile_user_balance(mobile_auth["user_id"])
 
     return render_template(
         "mobile/topup.html",
         customer_name=mobile_auth.get("name") or "Cliente",
-        current_balance=current_balance,
+        current_balance=balance,
+        balance=balance,
+        active_tab="account",
         success_message=success_message,
         error_message=error_message,
+    )
+
+
+@app.route("/mobile/account", methods=["GET"])
+def mobile_account_page():
+    mobile_auth = get_mobile_customer_session()
+    if not mobile_auth:
+        return redirect(url_for("mobile_login_page", notice="session_expired"))
+
+    user_id = mobile_auth["user_id"]
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT username, balance, created_at FROM users WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+    balance = float(row["balance"] or 0.0) if row else 0.0
+    username = row["username"] if row else ""
+    member_since = (row["created_at"] or "")[:10] if row else ""
+
+    return render_template(
+        "mobile/account.html",
+        customer_name=mobile_auth.get("name") or "Cliente",
+        username=username,
+        balance=balance,
+        member_since=member_since,
+        active_tab="account",
+    )
+
+
+@app.route("/mobile/rides", methods=["GET"])
+def mobile_rides_page():
+    mobile_auth = get_mobile_customer_session()
+    if not mobile_auth:
+        return redirect(url_for("mobile_login_page", notice="session_expired"))
+
+    user_id = mobile_auth["user_id"]
+    active_rental = sync_mobile_active_rental_from_db(mobile_auth)
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT r.rental_id, r.bike_id,
+                   r.start_station_id, r.end_station_id,
+                   r.start_time, r.duration_minutes, r.simulated_cost,
+                   s1.name AS start_station_name, s2.name AS end_station_name
+            FROM rentals r
+            LEFT JOIN stations s1 ON s1.station_id = r.start_station_id
+            LEFT JOIN stations s2 ON s2.station_id = r.end_station_id
+            WHERE r.user_id = ?
+              AND r.status = 'completed'
+            ORDER BY r.start_time DESC
+            LIMIT 50
+            """,
+            (user_id,),
+        ).fetchall()
+
+    rides = []
+    for row in rows:
+        ride = dict(row)
+        raw_ts = ride.get("start_time") or ""
+        ride["start_time_fmt"] = raw_ts[:16].replace("T", " ") if raw_ts else "—"
+        rides.append(ride)
+
+    balance = get_mobile_user_balance(user_id)
+
+    return render_template(
+        "mobile/rides.html",
+        customer_name=mobile_auth.get("name") or "Cliente",
+        balance=balance,
+        active_tab="rides",
+        rides=rides,
+        active_rental=active_rental,
     )
 
 

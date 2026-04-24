@@ -269,7 +269,10 @@ class LoRaReceiver(threading.Thread):
 
         def deny(reason: str) -> None:
             print(f"[LORA] RENTAL_DENIED → {station_id}: {reason}")
-            self._sender.send(format_message(RENTAL_DENIED, station_id, reason, _utc_iso()))
+            msg = format_message(RENTAL_DENIED, station_id, reason, _utc_iso())
+            self._sender.send(msg)
+            time.sleep(2)
+            self._sender.send(msg)
             self._safe_log_event(
                 source=station_id,
                 event_type="RENTAL_REQUEST_DENIED",
@@ -278,7 +281,10 @@ class LoRaReceiver(threading.Thread):
 
         def login_fail(reason: str) -> None:
             print(f"[LORA] LOGIN_FAIL → {station_id}: {reason}")
-            self._sender.send(format_message(LOGIN_FAIL, station_id, reason, _utc_iso()))
+            msg = format_message(LOGIN_FAIL, station_id, reason, _utc_iso())
+            self._sender.send(msg)
+            time.sleep(2)
+            self._sender.send(msg)
             self._safe_log_event(
                 source=station_id,
                 event_type="LOGIN_FAIL",
@@ -322,50 +328,15 @@ class LoRaReceiver(threading.Thread):
                 deny("invalid_station")
                 return
 
-            active_user_rental = conn.execute(
-                "SELECT rental_id FROM rentals WHERE user_id = ? AND status = 'active'",
-                (user["user_id"],),
-            ).fetchone()
-            if active_user_rental:
-                deny("user_has_active_rental")
-                return
-
-            bike = conn.execute(
-                "SELECT bike_id, status, current_station_id FROM bikes WHERE bike_id = ?",
-                (bike_id,),
-            ).fetchone()
-            if not bike:
-                print(f"[LORA] RENTAL_REQUEST: bike {bike_id!r} not in DB")
-                deny("bike_not_available")
-                return
-            print(f"[LORA] RENTAL_REQUEST: bike status={bike['status']} at={bike['current_station_id']!r}")
-            if bike["status"] != "docked":
-                deny("bike_not_available")
-                return
-            if bike["current_station_id"] != station_id:
-                deny("bike_not_at_station")
-                return
-
-            active_bike_rental = conn.execute(
-                "SELECT rental_id FROM rentals WHERE bike_id = ? AND status = 'active'",
-                (bike_id,),
-            ).fetchone()
-            if active_bike_rental:
-                deny("bike_not_available")
-                return
-
             balance = float(user["balance"] or 0.0)
             print(f"[LORA] RENTAL_REQUEST: balance={balance:.2f}  minimum={MINIMUM_BALANCE_TO_RENT}")
-            if balance < MINIMUM_BALANCE_TO_RENT:
-                deny("insufficient_balance")
-                return
 
-            # Eligible. Mint a session token (same shape as /api/auth/login)
-            # so future HTTP flows can reuse it even though the kiosk itself
-            # talks over LoRa.
+            # Mint the session token before any rental-eligibility checks so
+            # LOGIN_OK can always be paired with RENTAL_DENIED (return flow,
+            # insufficient balance) giving the station the token it needs.
             import secrets
             from datetime import timedelta
-            token = secrets.token_hex(32)
+            token = secrets.token_hex(8)  # 16 hex chars — shorter LoRa packet, still 64-bit entropy
             expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
             conn.execute(
                 """
@@ -377,22 +348,80 @@ class LoRaReceiver(threading.Thread):
             conn.commit()
 
             user_id = user["user_id"]
-            name = user["name"]
+            name = (user["name"] or "")[:16]  # truncate for LoRa packet size
+
+            # Check active rental AFTER token creation so we can send LOGIN_OK
+            # alongside RENTAL_DENIED, letting the station route to the return flow.
+            active_user_rental = conn.execute(
+                "SELECT rental_id FROM rentals WHERE user_id = ? AND status = 'active'",
+                (user["user_id"],),
+            ).fetchone()
+            has_active_rental = bool(active_user_rental)
+
+            if not has_active_rental:
+                bike = conn.execute(
+                    "SELECT bike_id, status, current_station_id FROM bikes WHERE bike_id = ?",
+                    (bike_id,),
+                ).fetchone()
+                if not bike:
+                    print(f"[LORA] RENTAL_REQUEST: bike {bike_id!r} not in DB")
+                    deny("bike_not_available")
+                    return
+                print(f"[LORA] RENTAL_REQUEST: bike status={bike['status']} at={bike['current_station_id']!r}")
+                if bike["status"] != "docked":
+                    deny("bike_not_available")
+                    return
+                if bike["current_station_id"] != station_id:
+                    deny("bike_not_at_station")
+                    return
+
+                active_bike_rental = conn.execute(
+                    "SELECT rental_id FROM rentals WHERE bike_id = ? AND status = 'active'",
+                    (bike_id,),
+                ).fetchone()
+                if active_bike_rental:
+                    deny("bike_not_available")
+                    return
 
         ts = _utc_iso()
-        # LOGIN_OK|station_id|user_id|name|token|balance|ts
-        print(f"[LORA] sending LOGIN_OK → {station_id}  user={user_id} name={name!r}")
-        self._sender.send(format_message(
-            LOGIN_OK, station_id, user_id, name, token, f"{balance:.2f}", ts,
-        ))
-        # RENTAL_APPROVED|station_id|bike_id|user_id|ts
-        # Sent twice with a gap: the first may be lost if the station ESP32 is
-        # still processing LOGIN_OK and not yet back in RX mode.
+        login_ok_msg = format_message(LOGIN_OK, station_id, user_id, name, token, f"{balance:.2f}", ts)
+
+        # Any case where LOGIN_OK is paired with RENTAL_DENIED — send both
+        # messages twice so a single packet loss doesn't strand the station.
+        def _send_login_ok_denied(reason: str) -> None:
+            denied_msg = format_message(RENTAL_DENIED, station_id, reason, ts)
+            print(f"[LORA] LOGIN_OK + RENTAL_DENIED({reason}) → {station_id} (attempt 1)")
+            self._sender.send(login_ok_msg)
+            self._sender.send(denied_msg)
+            time.sleep(3)
+            print(f"[LORA] LOGIN_OK + RENTAL_DENIED({reason}) → {station_id} (attempt 2)")
+            self._sender.send(login_ok_msg)
+            self._sender.send(denied_msg)
+            self._safe_log_event(
+                source=station_id,
+                event_type="RENTAL_REQUEST_DENIED",
+                payload={"user_id": user_id, "bike_id": bike_id, "reason": reason},
+            )
+
+        if has_active_rental:
+            _send_login_ok_denied("user_has_active_rental")
+            return
+
+        if balance < MINIMUM_BALANCE_TO_RENT:
+            # Auth succeeded but balance too low — station needs LOGIN_OK for
+            # the token so it can submit a TOPUP_REQUEST later.
+            _send_login_ok_denied("insufficient_balance")
+            return
+
+        # Both messages sent as a pair twice — if either is lost in the first
+        # attempt the retry at +3 s gives the station a second chance.
         approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, user_id, ts)
-        print(f"[LORA] sending RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 1)")
+        print(f"[LORA] LOGIN_OK + RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 1)")
+        self._sender.send(login_ok_msg)
         self._sender.send(approved_msg)
-        time.sleep(2)
-        print(f"[LORA] sending RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 2)")
+        time.sleep(3)
+        print(f"[LORA] LOGIN_OK + RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 2)")
+        self._sender.send(login_ok_msg)
         self._sender.send(approved_msg)
         self._safe_log_event(
             source=station_id,
@@ -618,15 +647,19 @@ class LoRaReceiver(threading.Thread):
 
         if result["success"]:
             print(f"[LORA] TOPUP_OK → {station_id}  amount={result['amount']}  new_balance={result['new_balance']}")
-            self._sender.send(format_message(
-                TOPUP_OK, station_id,
-                f"{result['new_balance']:.2f}",
-                _utc_iso(),
-            ))
+            ok_msg = format_message(TOPUP_OK, station_id, f"{result['new_balance']:.2f}", _utc_iso())
+            self._sender.send(ok_msg)
+            time.sleep(2)
+            print(f"[LORA] TOPUP_OK → {station_id} (attempt 2)")
+            self._sender.send(ok_msg)
         else:
             reason = result["error"] or "invalid_code"
             print(f"[LORA] TOPUP_FAIL → {station_id}: {reason}")
-            self._sender.send(format_message(TOPUP_FAIL, station_id, reason, _utc_iso()))
+            fail_msg = format_message(TOPUP_FAIL, station_id, reason, _utc_iso())
+            self._sender.send(fail_msg)
+            time.sleep(2)
+            print(f"[LORA] TOPUP_FAIL → {station_id} (attempt 2)")
+            self._sender.send(fail_msg)
 
     def _handle_gps(self, fields) -> None:
         # GPS|bike_id|unix_ts|lat|lon
@@ -641,6 +674,10 @@ class LoRaReceiver(threading.Thread):
             lon = float(fields[3])
         except (TypeError, ValueError):
             print(f"[LORA] GPS: non-numeric payload {fields}")
+            return
+
+        if unix_ts == 0 and lat == 0.0 and lon == 0.0:
+            print(f"[LORA] GPS: no-fix packet from {bike_id}, skipping")
             return
 
         if lat < -90 or lat > 90 or lon < -180 or lon > 180:

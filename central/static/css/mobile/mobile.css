@@ -1,25 +1,151 @@
 @import "../shared/theme.css";
 
+/* ── base — mobile-first ──────────────────────────────── */
+html {
+    overflow-x: hidden;
+}
+
 body {
     background: var(--bg-1);
-    min-height: 100vh;
-    padding: 0.85rem;
+    min-height: 100svh; /* svh = small viewport height: excludes browser chrome on iOS */
+    padding: 0.65rem;
     overflow-x: hidden;
+}
+
+/* scale padding up for larger screens */
+@media (min-width: 400px) {
+    body { padding: 0.85rem; }
+}
+
+body.has-chrome {
+    /* env() falls back to 0px when viewport-fit=cover isn't set */
+    padding-top: calc(56px + env(safe-area-inset-top, 0px) + 0.65rem);
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 0.65rem);
+}
+
+@media (min-width: 400px) {
+    body.has-chrome {
+        padding-top: calc(56px + env(safe-area-inset-top, 0px) + 0.85rem);
+        padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 0.85rem);
+    }
 }
 
 .mobile-shell {
     width: min(560px, 100%);
     margin: 0 auto;
-    min-height: 100vh;
+    /* no min-height — 100vh on iOS Safari includes browser chrome and causes overflow */
 }
 
+/* ── top app bar ──────────────────────────────────────── */
+.app-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* push content below the notch on Face ID iPhones */
+    padding: env(safe-area-inset-top, 0px) 1rem 0;
+    height: calc(56px + env(safe-area-inset-top, 0px));
+    gap: 0.75rem;
+}
+
+.app-bar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    text-decoration: none;
+    color: inherit;
+    flex-shrink: 0;
+}
+
+.app-bar-name {
+    font-family: "SaoTorpes", "Montserrat", sans-serif;
+    font-size: 1.05rem;
+    line-height: 1;
+    color: var(--ink-soft);
+}
+
+.balance-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1;
+    color: var(--ink-soft);
+    text-decoration: none;
+}
+
+.balance-chip.low {
+    color: var(--danger);
+    border-color: #f4cac6;
+    background: #feeceb;
+}
+
+/* ── bottom tab bar ───────────────────────────────────── */
+.tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    /* extend behind the home indicator bar on iPhone X+ */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+.tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.22rem;
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: color 100ms ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+}
+
+.tab-item svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.8;
+    transition: stroke 100ms ease;
+}
+
+.tab-item.active {
+    color: var(--primary);
+}
+
+/* ── cards ────────────────────────────────────────────── */
 .mobile-card {
     position: relative;
     width: 100%;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 22px;
-    padding: 1.2rem;
+    border-radius: 18px; /* mobile default; scales up at 560px */
+    padding: 1rem;
     display: grid;
     gap: 0.9rem;
     box-shadow: var(--shadow);
@@ -33,22 +159,29 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 6px;
     background: var(--primary);
+}
+
+.mobile-card.accent-green::before {
+    background: var(--accent);
 }
 
 .hero {
     margin-top: 0;
 }
 
-.brand-row {
-    gap: 0.75rem;
-}
-
+/* ── typography ───────────────────────────────────────── */
 h1 {
     margin: 0;
-    font-size: clamp(1.6rem, 4.2vw, 2.25rem);
+    font-size: clamp(1.45rem, 8vw, 1.9rem); /* mobile default; scales at 560px */
     line-height: 1.1;
+}
+
+.page-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.55rem;
+    font-weight: 800;
 }
 
 .hint {
@@ -60,6 +193,185 @@ h1 {
     padding: 0.7rem 0.75rem;
 }
 
+/* ── balance hero (account page) ─────────────────────── */
+.balance-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    background: var(--ink-soft);
+    border-radius: 18px;
+    padding: 1.1rem 1.2rem;
+    color: #f7f1ea;
+}
+
+.balance-hero .label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    margin: 0;
+}
+
+.balance-hero .amount {
+    font-family: "SaoTorpes", "Montserrat", sans-serif;
+    font-size: 2.8rem;
+    line-height: 1;
+    margin: 0.15rem 0 0;
+    color: #f7f1ea;
+}
+
+.balance-hero.low .amount {
+    color: #f09090;
+}
+
+.balance-hero .warn-note {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #f09090;
+    margin: 0.15rem 0 0;
+}
+
+/* ── profile rows ─────────────────────────────────────── */
+.profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border-soft);
+    gap: 1rem;
+}
+
+.profile-row:last-of-type {
+    border-bottom: none;
+}
+
+.profile-row .label {
+    font-size: 0.83rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.profile-row .value {
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-align: right;
+}
+
+/* ── ride history cards ───────────────────────────────── */
+.ride-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+    display: grid;
+    gap: 0.45rem;
+    animation: rise-in 300ms ease-out;
+}
+
+.ride-route {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.ride-route .arrow {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 0.9rem;
+}
+
+.ride-meta-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.ride-meta {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.ride-cost {
+    font-weight: 800;
+    color: var(--ink-soft);
+}
+
+.ride-date {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 0;
+}
+
+/* ── active ride banner ───────────────────────────────── */
+.active-ride-banner {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 16px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.active-ride-banner .banner-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    opacity: 0.8;
+    margin: 0;
+}
+
+.active-ride-banner .banner-title {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0.1rem 0 0;
+}
+
+.active-ride-banner .banner-btn {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 10px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.83rem;
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── stat chips (station detail) ─────────────────────── */
+.stat-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.stat-chip.ok { color: var(--ok); border-color: #b8d9be; background: var(--ok-bg); }
+.stat-chip.off { color: var(--off); }
+
+/* ── forms ────────────────────────────────────────────── */
 .form-grid {
     display: grid;
     gap: 0.7rem;
@@ -85,6 +397,15 @@ input:focus {
     border-color: var(--primary);
 }
 
+input.code-input {
+    font-family: "SaoTorpes", monospace;
+    font-size: 1.6rem;
+    letter-spacing: 0.25em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* ── buttons ──────────────────────────────────────────── */
 .btn {
     min-height: 62px;
     text-decoration: none;
@@ -111,6 +432,25 @@ input:focus {
     color: #1f1f1f;
     background: #f0e2d7;
     border: 1px solid #d2b8a6;
+}
+
+.btn-danger {
+    color: #fff;
+    background: var(--danger);
+}
+
+.btn-danger:hover {
+    background: var(--danger-dark);
+}
+
+.btn-sm {
+    min-height: 48px;
+    font-size: 0.95rem;
+}
+
+/* ── misc ─────────────────────────────────────────────── */
+.brand-row {
+    gap: 0.75rem;
 }
 
 .empty-box {
@@ -159,17 +499,20 @@ input:focus {
     color: var(--muted);
 }
 
-@media (max-width: 560px) {
-    body {
-        padding: 0.65rem;
-    }
+.section-divider {
+    border: none;
+    border-top: 1px solid var(--border-soft);
+    margin: 0;
+}
 
+/* ── scale up for wider screens ───────────────────────── */
+@media (min-width: 560px) {
     .mobile-card {
-        padding: 1rem;
-        border-radius: 18px;
+        padding: 1.2rem;
+        border-radius: 22px;
     }
 
     h1 {
-        font-size: clamp(1.45rem, 8vw, 1.9rem);
+        font-size: clamp(1.6rem, 4.2vw, 2.25rem);
     }
 }

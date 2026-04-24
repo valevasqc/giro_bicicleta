@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Mi Cuenta - Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+</head>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
+    <main class="mobile-shell">
+        <div style="display:grid;gap:0.85rem;">
+
+            <div class="balance-hero {% if balance < 5 %}low{% endif %}">
+                <p class="label">Saldo disponible</p>
+                <p class="amount">Q{{ "%.2f"|format(balance) }}</p>
+                {% if balance < 0 %}
+                    <p class="warn-note">Saldo negativo — recarga antes de tu próxima renta.</p>
+                {% elif balance < 5 %}
+                    <p class="warn-note">Saldo bajo — considera recargar.</p>
+                {% endif %}
+            </div>
+
+            <a class="btn btn-primary" href="{{ url_for('mobile_topup_page') }}">Recargar saldo</a>
+
+            <section class="mobile-card" style="padding-top:1.4rem;">
+                <p class="eyebrow">Perfil</p>
+                <div>
+                    <div class="profile-row">
+                        <span class="label">Nombre</span>
+                        <span class="value">{{ customer_name }}</span>
+                    </div>
+                    <div class="profile-row">
+                        <span class="label">Usuario</span>
+                        <span class="value">{{ username }}</span>
+                    </div>
+                    <div class="profile-row">
+                        <span class="label">Miembro desde</span>
+                        <span class="value">{{ member_since }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <form method="post" action="{{ url_for('mobile_logout_page') }}">
+                <button type="submit" class="btn btn-ghost" style="width:100%;">Cerrar sesión</button>
+            </form>
+
+        </div>
+    </main>
+</body>
+</html>

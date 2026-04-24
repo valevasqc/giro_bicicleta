@@ -2,33 +2,42 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pago móvil - Giro Bicicleta</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Autorizar pago - Giro Bicicleta</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
 </head>
-<body>
+<body class="has-chrome">
+    {% include "mobile/_chrome.html" %}
+
     <main class="mobile-shell">
         <section class="mobile-card">
-            <div class="brand-row">
-                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
-                <p class="eyebrow">Pago móvil</p>
+            <p class="eyebrow">Confirmar renta</p>
+            <h1>Autorizar pago</h1>
+
+            <div class="list-item" style="gap:0.4rem;">
+                <div class="profile-row" style="padding:0.35rem 0;">
+                    <span class="label">Estación</span>
+                    <span class="value">{{ station_name }} ({{ station_id }})</span>
+                </div>
+                <div class="profile-row" style="padding:0.35rem 0;border-bottom:none;">
+                    <span class="label">Bicicleta</span>
+                    <span class="value">{{ bike_id }}</span>
+                </div>
             </div>
-            <h1>Autorizar renta</h1>
-            <p class="muted">Estación: {{ station_name }} ({{ station_id }})</p>
-            <p class="muted">Bicicleta: {{ bike_id }}</p>
-            <p class="hint">Se autorizará un pago simulado para iniciar tu viaje.</p>
+
+            <p class="hint">El costo se calculará al finalizar el viaje y se descontará de tu saldo.</p>
 
             {% if error_message %}
                 <p class="error-box">{{ error_message }}</p>
             {% endif %}
 
             <form method="post" class="form-grid" id="mobile-payment-form">
-                <button type="submit" class="btn btn-primary" id="mobile-payment-btn">Autorizar y empezar</button>
-                <p class="muted" id="mobile-payment-loading" hidden>Procesando...</p>
+                <button type="submit" class="btn btn-primary" id="mobile-payment-btn">Empezar viaje</button>
+                <p class="loading-note" id="mobile-payment-loading" hidden>Autorizando...</p>
             </form>
             <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Cancelar</a>
         </section>

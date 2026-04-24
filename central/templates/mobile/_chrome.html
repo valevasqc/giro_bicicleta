@@ -1,0 +1,46 @@
+{# App bar + bottom tab bar. Include in every authenticated mobile page.
+   Required vars: customer_name, balance, active_tab ("stations"|"rides"|"account") #}
+
+<header class="app-bar">
+    <a class="app-bar-brand" href="{{ url_for('mobile_stations_page') }}">
+        <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+        <span class="app-bar-name">Giro</span>
+    </a>
+    <a class="balance-chip {% if balance is not none and balance < 5 %}low{% endif %}"
+       href="{{ url_for('mobile_topup_page') }}"
+       title="Recargar saldo">
+        {% if balance is not none %}
+            Q{{ "%.2f"|format(balance) }}
+        {% else %}
+            —
+        {% endif %}
+    </a>
+</header>
+
+<nav class="tab-bar">
+    <a class="tab-item {% if active_tab == 'stations' %}active{% endif %}"
+       href="{{ url_for('mobile_stations_page') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M6.343 17.657A8 8 0 1 1 17.657 6.343"/>
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+        </svg>
+        Estaciones
+    </a>
+    <a class="tab-item {% if active_tab == 'rides' %}active{% endif %}"
+       href="{{ url_for('mobile_rides_page') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="4" width="18" height="16" rx="2"/>
+            <path d="M7 9h10M7 13h7"/>
+        </svg>
+        Mis Viajes
+    </a>
+    <a class="tab-item {% if active_tab == 'account' %}active{% endif %}"
+       href="{{ url_for('mobile_account_page') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        Mi Cuenta
+    </a>
+</nav>
