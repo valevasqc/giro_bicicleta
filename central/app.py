@@ -1,3 +1,4 @@
+import json
 import secrets
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,9 @@ try:
         LORA_BAUD_RATE,
         PRICING_RATE_PER_MINUTE,
         MINIMUM_CHARGE,
+        GEOFENCE_CENTER_LAT,
+        GEOFENCE_CENTER_LON,
+        GEOFENCE_RADIUS_M,
     )
     from .services import topup_service
 except ImportError:
@@ -42,6 +46,9 @@ except ImportError:
         LORA_BAUD_RATE,
         PRICING_RATE_PER_MINUTE,
         MINIMUM_CHARGE,
+        GEOFENCE_CENTER_LAT,
+        GEOFENCE_CENTER_LON,
+        GEOFENCE_RADIUS_M,
     )
     import services.topup_service as topup_service
 
@@ -1468,7 +1475,8 @@ def admin_state():
         active_rentals = [
             dict(row) for row in conn.execute(
                 """
-                SELECT rental_id, user_id, bike_id, start_station_id, start_time, status, payment_method, payment_status, payment_authorized_at
+                SELECT rental_id, user_id, bike_id, start_station_id, start_time, status,
+                       payment_method, payment_status, payment_authorized_at, geofence_breached
                 FROM rentals
                 WHERE status = 'active'
                 ORDER BY start_time DESC
@@ -1479,7 +1487,10 @@ def admin_state():
         completed_rentals = [
             dict(row) for row in conn.execute(
                 """
-                SELECT rental_id, user_id, bike_id, start_station_id, end_station_id, start_time, end_time, duration_minutes, simulated_cost, status, payment_method, payment_status, payment_authorized_at, payment_captured_at
+                SELECT rental_id, user_id, bike_id, start_station_id, end_station_id,
+                       start_time, end_time, duration_minutes, simulated_cost, status,
+                       payment_method, payment_status, payment_authorized_at, payment_captured_at,
+                       geofence_breached
                 FROM rentals
                 WHERE status = 'completed'
                 ORDER BY end_time DESC
@@ -1508,6 +1519,118 @@ def admin_state():
         "completed_rentals": completed_rentals,
         "recent_events": recent_events
     })
+
+@app.route("/api/admin/bike/<bike_id>/track", methods=["GET"])
+def admin_bike_track_api(bike_id):
+    if not get_admin_session():
+        return jsonify({"ok": False, "reason": "unauthorized"}), 401
+
+    with get_connection() as conn:
+        bike = conn.execute(
+            "SELECT bike_id, status, last_lat, last_lon, last_gps_time FROM bikes WHERE bike_id = ?",
+            (bike_id,),
+        ).fetchone()
+
+        if not bike:
+            return jsonify({"ok": False, "reason": "bike_not_found"}), 404
+
+        bike = dict(bike)
+
+        active_rental = conn.execute(
+            "SELECT rental_id FROM rentals WHERE bike_id = ? AND status = 'active' LIMIT 1",
+            (bike_id,),
+        ).fetchone()
+
+        if active_rental:
+            pings = conn.execute(
+                """
+                SELECT lat, lon, timestamp
+                FROM gps_pings
+                WHERE rental_id = ?
+                ORDER BY timestamp ASC
+                """,
+                (active_rental["rental_id"],),
+            ).fetchall()
+            active_rental_id = active_rental["rental_id"]
+        else:
+            pings = conn.execute(
+                """
+                SELECT lat, lon, timestamp
+                FROM gps_pings
+                WHERE bike_id = ?
+                ORDER BY ping_id DESC
+                LIMIT 30
+                """,
+                (bike_id,),
+            ).fetchall()
+            pings = list(reversed(pings))
+            active_rental_id = None
+
+    return jsonify({
+        "ok": True,
+        "bike": bike,
+        "pings": [dict(p) for p in pings],
+        "active_rental_id": active_rental_id,
+        "geofence": {
+            "center_lat": GEOFENCE_CENTER_LAT,
+            "center_lon": GEOFENCE_CENTER_LON,
+            "radius_m": GEOFENCE_RADIUS_M,
+        },
+    })
+
+
+@app.route("/admin/rentals/<rental_id>/track", methods=["GET"])
+def admin_rental_track_page(rental_id):
+    admin_auth = get_admin_session()
+    if not admin_auth:
+        return redirect(url_for("admin_login_page", notice="session_expired"))
+
+    with get_connection() as conn:
+        rental = conn.execute(
+            """
+            SELECT r.rental_id, r.user_id, r.bike_id, r.start_station_id, r.end_station_id,
+                   r.start_time, r.end_time, r.duration_minutes, r.simulated_cost, r.status,
+                   r.geofence_breached, r.first_breach_at,
+                   u.name AS user_name
+            FROM rentals r
+            JOIN users u ON u.user_id = r.user_id
+            WHERE r.rental_id = ?
+            """,
+            (rental_id,),
+        ).fetchone()
+
+        if not rental:
+            return redirect(url_for("admin_dashboard_page"))
+
+        rental = dict(rental)
+
+        pings = conn.execute(
+            """
+            SELECT lat, lon, timestamp
+            FROM gps_pings
+            WHERE rental_id = ?
+            ORDER BY timestamp ASC
+            """,
+            (rental_id,),
+        ).fetchall()
+
+    return no_store_html_response(render_template(
+        "admin/rental_track.html",
+        admin_name=admin_auth.get("name") or "Admin",
+        rental=rental,
+        pings_json=json.dumps([dict(p) for p in pings]),
+        geofence_json=json.dumps({
+            "center_lat": GEOFENCE_CENTER_LAT,
+            "center_lon": GEOFENCE_CENTER_LON,
+            "radius_m": GEOFENCE_RADIUS_M,
+        }),
+    ))
+
+
+# --- GPS track export stub (columns TBD) ------------------------------------
+# @app.route("/admin/export/gps_track/<rental_id>.csv", methods=["GET"])
+# def export_gps_track(rental_id): ...
+
 
 @app.route("/api/stations/<station_id>/status", methods=["GET"])
 def station_status(station_id):

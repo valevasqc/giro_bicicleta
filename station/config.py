@@ -38,7 +38,7 @@ STUB_CHARGE_CONNECTED = os.getenv("STUB_CHARGE_CONNECTED", "true").lower() in ("
 # --- LoRa ---------------------------------------------------------------
 # STUB_LORA=true replaces pyserial with two append-only files so central
 # and station can round-trip messages on the same laptop during dev.
-STUB_LORA = False
+STUB_LORA = os.getenv("STUB_LORA", "false").lower() in ("1", "true", "yes")
 
 # Shared stub files. Central writes to OUTBOUND (station -> central side:
 # it reads), and reads from INBOUND (central writes). Station does the

@@ -15,6 +15,7 @@ bad message logs and is skipped; the thread never dies on bad input.
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from datetime import datetime, timezone
@@ -29,12 +30,26 @@ except ImportError:
 try:
     from .database import get_connection, log_event
     from .pricing import calculate_duration_minutes, calculate_cost
-    from .config import MINIMUM_BALANCE_TO_RENT, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE
+    from .config import (
+        MINIMUM_BALANCE_TO_RENT,
+        PRICING_RATE_PER_MINUTE,
+        MINIMUM_CHARGE,
+        GEOFENCE_CENTER_LAT,
+        GEOFENCE_CENTER_LON,
+        GEOFENCE_RADIUS_M,
+    )
     from .services import topup_service
 except ImportError:
     from database import get_connection, log_event
     from pricing import calculate_duration_minutes, calculate_cost
-    from config import MINIMUM_BALANCE_TO_RENT, PRICING_RATE_PER_MINUTE, MINIMUM_CHARGE
+    from config import (
+        MINIMUM_BALANCE_TO_RENT,
+        PRICING_RATE_PER_MINUTE,
+        MINIMUM_CHARGE,
+        GEOFENCE_CENTER_LAT,
+        GEOFENCE_CENTER_LON,
+        GEOFENCE_RADIUS_M,
+    )
     import services.topup_service as topup_service
 
 try:
@@ -80,6 +95,16 @@ from werkzeug.security import check_password_hash
 
 
 TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return great-circle distance in metres between two WGS-84 points."""
+    R = 6_371_000
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
 
 
 def _utc_iso() -> str:
@@ -718,6 +743,37 @@ class LoRaReceiver(threading.Thread):
                 (bike_id, active_rental_id, gps_time, lat, lon),
             )
             conn.commit()
+
+            if active_rental_id:
+                dist_m = _haversine_m(lat, lon, GEOFENCE_CENTER_LAT, GEOFENCE_CENTER_LON)
+                if dist_m > GEOFENCE_RADIUS_M:
+                    existing = conn.execute(
+                        "SELECT geofence_breached FROM rentals WHERE rental_id = ?",
+                        (active_rental_id,),
+                    ).fetchone()
+                    was_breached = bool(existing and existing["geofence_breached"])
+                    conn.execute(
+                        """
+                        UPDATE rentals
+                        SET geofence_breached = 1,
+                            first_breach_at = COALESCE(first_breach_at, ?)
+                        WHERE rental_id = ?
+                        """,
+                        (gps_time, active_rental_id),
+                    )
+                    conn.commit()
+                    if not was_breached:
+                        print(f"[GEOFENCE] BREACH: bike={bike_id} dist={dist_m:.0f}m rental={active_rental_id}")
+                        self._safe_log_event(
+                            source=bike_id,
+                            event_type="GEOFENCE_BREACH",
+                            payload={
+                                "lat": lat,
+                                "lon": lon,
+                                "dist_m": round(dist_m, 1),
+                                "rental_id": active_rental_id,
+                            },
+                        )
 
         self._safe_log_event(
             source=bike_id,

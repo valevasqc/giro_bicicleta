@@ -63,7 +63,9 @@ CREATE TABLE IF NOT EXISTS rentals (
     payment_authorized_at TEXT,
     payment_captured_at   TEXT,
     status                TEXT NOT NULL DEFAULT 'active'
-                              CHECK (status IN ('active', 'completed', 'cancelled'))
+                              CHECK (status IN ('active', 'completed', 'cancelled')),
+    geofence_breached     INTEGER NOT NULL DEFAULT 0,
+    first_breach_at       TEXT
 );
 
 -- System event log

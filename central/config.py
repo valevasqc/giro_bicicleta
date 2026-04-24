@@ -50,7 +50,7 @@ MINIMUM_CHARGE = float(os.getenv("MINIMUM_CHARGE", "1.00"))
 # STUB_LORA=true routes every LoRa I/O through two append-only files so
 # central and station can round-trip messages on one laptop during dev.
 # Naming below is from central's point of view — mirror of station/config.py.
-STUB_LORA = False
+STUB_LORA = os.getenv("STUB_LORA", "false").lower() in ("1", "true", "yes")
 
 _default_stub_dir = BASE_DIR.parent / ".lora_stub"
 STUB_LORA_DIR = Path(os.getenv("STUB_LORA_DIR", str(_default_stub_dir)))
@@ -63,3 +63,8 @@ STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_station.log"
 LORA_PORT = "/dev/cu.usbmodem101"
 LORA_SERIAL_PORT = LORA_PORT
 LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
+
+# Geofence — UFM main campus. Center of the presentation route, 400 m radius.
+GEOFENCE_CENTER_LAT = float(os.getenv("GEOFENCE_CENTER_LAT", "14.6065"))
+GEOFENCE_CENTER_LON = float(os.getenv("GEOFENCE_CENTER_LON", "-90.5054"))
+GEOFENCE_RADIUS_M   = float(os.getenv("GEOFENCE_RADIUS_M", "400"))

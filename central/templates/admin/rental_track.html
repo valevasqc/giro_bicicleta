@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ruta del viaje — Giro Bicicleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin.css') }}" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #rental-map { height: 480px; border-radius: 10px; background: #e8e0d8; }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.6rem;
+            margin: 0.75rem 0 1rem;
+        }
+        .meta-item { font-size: 0.88rem; }
+        .meta-item strong { display: block; color: var(--muted); font-size: 0.75rem;
+                            text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
+        .badge-breach { background: #fae8e7; color: #7f1b18; }
+        .no-pings { padding: 3rem 1rem; text-align: center; color: var(--muted); font-style: italic; }
+    </style>
+</head>
+<body>
+    <main class="admin-shell">
+        <header class="admin-topbar">
+            <div>
+                <div class="brand-row">
+                    <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+                    <p class="eyebrow">Giro Bicicleta</p>
+                </div>
+                <h1>Ruta del viaje</h1>
+                <p class="muted">Sesión: {{ admin_name }}</p>
+            </div>
+            <a href="{{ url_for('admin_dashboard_page') }}" class="btn btn-secondary">← Dashboard</a>
+        </header>
+
+        <section class="panel">
+            <h2>
+                Viaje {{ rental.rental_id[:8].upper() }}
+                {% if rental.geofence_breached %}
+                    &nbsp;<span class="badge badge-breach">⚠ Fuga de geocerca</span>
+                {% endif %}
+            </h2>
+
+            <div class="meta-grid">
+                <div class="meta-item"><strong>Bicicleta</strong>{{ rental.bike_id }}</div>
+                <div class="meta-item"><strong>Usuario</strong>{{ rental.user_name }}</div>
+                <div class="meta-item"><strong>Estación inicio</strong>{{ rental.start_station_id }}</div>
+                <div class="meta-item"><strong>Estación fin</strong>{{ rental.end_station_id or '—' }}</div>
+                <div class="meta-item"><strong>Inicio</strong>{{ rental.start_time or '—' }}</div>
+                <div class="meta-item"><strong>Fin</strong>{{ rental.end_time or '—' }}</div>
+                <div class="meta-item">
+                    <strong>Duración</strong>
+                    {% if rental.duration_minutes is not none %}
+                        {{ "%.1f"|format(rental.duration_minutes) }} min
+                    {% else %}—{% endif %}
+                </div>
+                <div class="meta-item">
+                    <strong>Costo</strong>
+                    {% if rental.simulated_cost is not none %}
+                        GTQ {{ "%.2f"|format(rental.simulated_cost) }}
+                    {% else %}—{% endif %}
+                </div>
+                {% if rental.first_breach_at %}
+                <div class="meta-item"><strong>Primera fuga</strong>{{ rental.first_breach_at }}</div>
+                {% endif %}
+            </div>
+
+            <div id="rental-map"></div>
+            <p id="no-pings-msg" class="no-pings" style="display:none">
+                No hay datos de GPS para este viaje.
+            </p>
+        </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function () {
+        const PINGS    = {{ pings_json | safe }};
+        const GEOFENCE = {{ geofence_json | safe }};
+
+        const mapEl = document.getElementById('rental-map');
+
+        if (!PINGS.length) {
+            mapEl.style.display = 'none';
+            document.getElementById('no-pings-msg').style.display = 'block';
+            return;
+        }
+
+        const center = [GEOFENCE.center_lat, GEOFENCE.center_lon];
+        const map = L.map('rental-map').setView(center, 17);
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Geofence boundary
+        L.circle(center, {
+            radius: GEOFENCE.radius_m,
+            color: '#a22521',
+            fillColor: '#a22521',
+            fillOpacity: 0.06,
+            weight: 2,
+            dashArray: '6 4',
+        }).addTo(map);
+
+        const lls = PINGS.map(p => [p.lat, p.lon]);
+
+        // Trail
+        L.polyline(lls, { color: '#a22521', weight: 3, opacity: 0.85 }).addTo(map);
+
+        // Start marker (green)
+        L.circleMarker(lls[0], {
+            radius: 7, color: '#fff', weight: 2,
+            fillColor: '#2f6f43', fillOpacity: 1,
+        }).bindPopup('Inicio<br><small>' + (PINGS[0].timestamp || '') + '</small>').addTo(map);
+
+        // End marker (dark red)
+        if (lls.length > 1) {
+            L.circleMarker(lls[lls.length - 1], {
+                radius: 7, color: '#fff', weight: 2,
+                fillColor: '#7f1b18', fillOpacity: 1,
+            }).bindPopup('Fin<br><small>' + (PINGS[PINGS.length - 1].timestamp || '') + '</small>').addTo(map);
+        }
+
+        map.fitBounds(L.polyline(lls).getBounds(), { padding: [48, 48] });
+    })();
+    </script>
+</body>
+</html>

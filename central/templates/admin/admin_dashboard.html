@@ -13,6 +13,12 @@
     />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin.css') }}" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #bike-live-map { height: 360px; border-radius: 10px; background: #e8e0d8; }
+        .badge-breach { background: #fae8e7; color: #7f1b18; }
+        .map-status { padding: 1rem; color: var(--muted); font-style: italic; }
+    </style>
 </head>
 <body>
     <main class="admin-shell">
@@ -58,6 +64,21 @@
                 <h2>Recent Completed</h2>
                 <p class="big">{{ summary.completed_recent }}</p>
             </article>
+        </section>
+
+        <section class="panel">
+            <h2>Ubicación en vivo — B1</h2>
+            <p class="muted" style="margin:0.25rem 0 0.75rem">
+                {% for bike in bikes if bike.bike_id == 'B1' %}
+                    {% if bike.status == 'rented' %}
+                        <span class="badge badge-warn">En viaje</span>
+                    {% else %}
+                        <span class="badge badge-neutral">{{ bike.status }}</span>
+                    {% endif %}
+                    &nbsp;Último ping: {{ bike.last_gps_time or '—' }}
+                {% endfor %}
+            </p>
+            <div id="bike-live-map"></div>
         </section>
 
         <section class="panel">
@@ -167,6 +188,7 @@
                             <th>start_time</th>
                             <th>payment_method</th>
                             <th>payment_status</th>
+                            <th>geofence</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -179,10 +201,17 @@
                                 <td>{{ row.start_time }}</td>
                                 <td>{{ row.payment_method or "—" }}</td>
                                 <td><span class="badge badge-warn">{{ row.payment_status }}</span></td>
+                                <td>
+                                    {% if row.geofence_breached %}
+                                        <span class="badge badge-breach">⚠ Fuga</span>
+                                    {% else %}
+                                        <span class="badge badge-ok">OK</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="7" class="empty">No active rentals</td>
+                                <td colspan="8" class="empty">No active rentals</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -205,7 +234,9 @@
                             <th>simulated_cost</th>
                             <th>currency</th>
                             <th>payment_status</th>
+                            <th>geofence</th>
                             <th>end_time</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -226,11 +257,24 @@
                                 </td>
                                 <td>GTQ</td>
                                 <td><span class="badge badge-ok">{{ row.payment_status }}</span></td>
+                                <td>
+                                    {% if row.geofence_breached %}
+                                        <span class="badge badge-breach">⚠ Fuga</span>
+                                    {% else %}
+                                        <span class="badge badge-ok">OK</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ row.end_time or "—" }}</td>
+                                <td>
+                                    <a href="/admin/rentals/{{ row.rental_id }}/track"
+                                       style="font-size:0.82rem;color:var(--primary);font-weight:700;white-space:nowrap;">
+                                        Ver ruta
+                                    </a>
+                                </td>
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="10" class="empty">No completed rentals yet</td>
+                                <td colspan="12" class="empty">No completed rentals yet</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -238,5 +282,86 @@
             </div>
         </section>
     </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function () {
+        const el = document.getElementById('bike-live-map');
+        if (!el) return;
+
+        const DEFAULT_CENTER = [14.6065, -90.5054];
+        const map = L.map('bike-live-map', { zoomControl: true }).setView(DEFAULT_CENTER, 17);
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Geofence circle — drawn once, never changes
+        L.circle(DEFAULT_CENTER, {
+            radius: 400,
+            color: '#a22521',
+            fillColor: '#a22521',
+            fillOpacity: 0.06,
+            weight: 2,
+            dashArray: '6 4',
+        }).addTo(map);
+
+        let trail = null;
+        let startDot = null;
+        let bikeDot = null;
+
+        function renderTrack(data) {
+            if (!data || !data.ok) return;
+
+            const bike   = data.bike;
+            const pings  = data.pings;
+            const rented = bike.status === 'rented';
+
+            if (trail)    { trail.remove();    trail    = null; }
+            if (startDot) { startDot.remove(); startDot = null; }
+            if (bikeDot)  { bikeDot.remove();  bikeDot  = null; }
+
+            if (pings.length > 1) {
+                const lls = pings.map(p => [p.lat, p.lon]);
+                trail = L.polyline(lls, {
+                    color: rented ? '#a22521' : '#9a5a1d',
+                    weight: 3,
+                    opacity: rented ? 0.85 : 0.45,
+                }).addTo(map);
+
+                startDot = L.circleMarker(lls[0], {
+                    radius: 5, color: '#fff', weight: 2,
+                    fillColor: '#2f6f43', fillOpacity: 1,
+                }).bindPopup('Salida de estación').addTo(map);
+            }
+
+            if (bike.last_lat != null && bike.last_lon != null) {
+                const pos   = [bike.last_lat, bike.last_lon];
+                const color = rented ? '#a22521' : '#6b6570';
+                const label = rented ? 'En viaje' : 'Estacionada';
+
+                bikeDot = L.circleMarker(pos, {
+                    radius: 8, color: '#fff', weight: 2,
+                    fillColor: color, fillOpacity: 1,
+                }).bindPopup(`<b>B1</b> &mdash; ${label}<br><small>${bike.last_gps_time || ''}</small>`)
+                  .addTo(map);
+
+                if (pings.length > 1 && trail) {
+                    map.fitBounds(trail.getBounds(), { padding: [40, 40] });
+                } else {
+                    map.setView(pos, 17);
+                }
+            }
+        }
+
+        fetch('/api/admin/bike/B1/track')
+            .then(r => r.ok ? r.json() : null)
+            .then(renderTrack)
+            .catch(() => {
+                el.innerHTML = '<p class="map-status">No se pudo cargar la ubicación de la bicicleta.</p>';
+            });
+    })();
+    </script>
 </body>
 </html>
