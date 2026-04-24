@@ -15,7 +15,6 @@ try:
         STATION_SERVICE_USERNAME,
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
-        TRACKER_API_KEY,
         STUB_LORA,
         STUB_LORA_INBOUND,
         STUB_LORA_OUTBOUND,
@@ -36,7 +35,6 @@ except ImportError:
         STATION_SERVICE_USERNAME,
         STATION_SERVICE_PASSWORD,
         STATION_OFFLINE_AFTER_SECONDS,
-        TRACKER_API_KEY,
         STUB_LORA,
         STUB_LORA_INBOUND,
         STUB_LORA_OUTBOUND,
@@ -1687,119 +1685,6 @@ def station_heartbeat():
         "is_online": 1,
     })
 
-
-@app.route("/api/tracker/gps", methods=["POST"])
-def tracker_gps_update():
-    tracker_key = (request.headers.get("X-Tracker-Key") or "").strip()
-    if not tracker_key or tracker_key != TRACKER_API_KEY:
-        return jsonify({
-            "ok": False,
-            "reason": "invalid_tracker_key"
-        }), 401
-
-    data = request.get_json(silent=True) or {}
-    bike_id = (data.get("bike_id") or "").strip()
-    lat_raw = data.get("lat")
-    lon_raw = data.get("lon")
-    gps_time_raw = data.get("gps_time")
-
-    if not bike_id or lat_raw is None or lon_raw is None:
-        return jsonify({
-            "ok": False,
-            "reason": "missing_fields"
-        }), 400
-
-    try:
-        lat = float(lat_raw)
-        lon = float(lon_raw)
-    except (TypeError, ValueError):
-        return jsonify({
-            "ok": False,
-            "reason": "invalid_coordinates"
-        }), 400
-
-    if lat < -90 or lat > 90 or lon < -180 or lon > 180:
-        return jsonify({
-            "ok": False,
-            "reason": "invalid_coordinates"
-        }), 400
-
-    if gps_time_raw is None:
-        gps_time = utc_iso(utc_now())
-    else:
-        gps_time = (gps_time_raw or "").strip()
-        if not parse_utc_iso(gps_time):
-            return jsonify({
-                "ok": False,
-                "reason": "invalid_gps_time"
-            }), 400
-
-    with get_connection() as conn:
-        bike = conn.execute(
-            """
-            SELECT bike_id
-            FROM bikes
-            WHERE bike_id = ?
-            """,
-            (bike_id,),
-        ).fetchone()
-
-        if not bike:
-            return jsonify({
-                "ok": False,
-                "reason": "bike_not_found"
-            }), 404
-
-        conn.execute(
-            """
-            UPDATE bikes
-            SET last_lat = ?,
-                last_lon = ?,
-                last_gps_time = ?
-            WHERE bike_id = ?
-            """,
-            (lat, lon, gps_time, bike_id),
-        )
-
-        # Look up the active rental so we can attach the ping to it.
-        active_rental = conn.execute(
-            """
-            SELECT rental_id
-            FROM rentals
-            WHERE bike_id = ? AND status = 'active'
-            LIMIT 1
-            """,
-            (bike_id,),
-        ).fetchone()
-        active_rental_id = active_rental["rental_id"] if active_rental else None
-
-        conn.execute(
-            """
-            INSERT INTO gps_pings (bike_id, rental_id, timestamp, lat, lon)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (bike_id, active_rental_id, gps_time, lat, lon),
-        )
-
-        conn.commit()
-
-    safe_log_event(
-        source=bike_id,
-        event_type="GPS_UPDATE",
-        payload={
-            "lat": lat,
-            "lon": lon,
-            "gps_time": gps_time,
-        },
-    )
-
-    return jsonify({
-        "ok": True,
-        "bike_id": bike_id,
-        "last_lat": lat,
-        "last_lon": lon,
-        "last_gps_time": gps_time,
-    })
 
 @app.route("/admin/topup-codes/generate", methods=["GET", "POST"])
 def admin_topup_codes_generate():

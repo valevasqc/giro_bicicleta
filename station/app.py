@@ -42,7 +42,7 @@ from station.lora_receiver import LoRaReceiver
 from station.lora_sender import LoRaSender
 from station.routes.kiosk import bp as kiosk_bp
 
-
+# TODO add mock QR log in
 def create_app() -> Flask:
     app = Flask(
         __name__,

@@ -30,6 +30,7 @@
   var pollUrl     = {{ poll_url | tojson }};
   var resultUrl   = {{ result_url | tojson }};
   var homeUrl     = {{ url_for('kiosk.station_home') | tojson }};
+  var loginUrl    = {{ url_for('kiosk.station_login', notice='timeout') | tojson }};
   var kind        = {{ pending_kind | tojson }};
   var timeout     = {{ timeout_seconds }};
   var titleEl     = document.getElementById('w-title');
@@ -52,8 +53,9 @@
       .then(function(data){
         if (!data.pending) {
           if (data.outcome === 'timeout') {
-            subEl.textContent = 'Sin respuesta. Vuelve al inicio e intenta de nuevo.';
-            setTimeout(function(){ redirect(homeUrl); }, 3000);
+            subEl.textContent = 'Sin respuesta. Intenta de nuevo.';
+            var dest = (kind === 'login') ? loginUrl : resultUrl;
+            setTimeout(function(){ redirect(dest); }, 2000);
             return;
           }
           redirect(resultUrl);

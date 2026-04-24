@@ -58,7 +58,7 @@ LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
 # --- Kiosk timing -------------------------------------------------------
 # How long the kiosk UI waits for a LoRa reply before giving up and
 # showing an error screen. Keeps "please wait" pages from spinning forever.
-LORA_REPLY_TIMEOUT_SECONDS = float(os.getenv("LORA_REPLY_TIMEOUT_SECONDS", "8"))
+LORA_REPLY_TIMEOUT_SECONDS = float(os.getenv("LORA_REPLY_TIMEOUT_SECONDS", "20"))
 
 # How often the station emits HEARTBEAT to central.
 HEARTBEAT_INTERVAL_SECONDS = float(os.getenv("HEARTBEAT_INTERVAL_SECONDS", "5"))

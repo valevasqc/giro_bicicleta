@@ -182,6 +182,8 @@ def station_login():
     notice_message = None
     if notice == "session_expired":
         notice_message = "Tu sesión expiró. Inicia sesión nuevamente."
+    elif notice == "timeout":
+        notice_message = "No se recibió respuesta de la central. Por favor intenta de nuevo."
 
     return render_template(
         "kiosk/login.html",
@@ -222,22 +224,36 @@ def station_rental_request_result():
         state.clear_pending()
         return redirect(url_for("kiosk.station_account_status"))
 
-    # ── LOGIN_OK + RENTAL_DENIED(user_has_active_rental) → show return branch ──
+    # ── LOGIN_OK + RENTAL_DENIED → branch on reason ──────────────────
     if login_ok and rental_denied:
         denied_fields = rental_denied["fields"]
         reason_code = denied_fields[1] if len(denied_fields) > 1 else ""
+        ok_fields = login_ok["fields"]
+        auth = {
+            "user_id": ok_fields[1] if len(ok_fields) > 1 else None,
+            "name":    ok_fields[2] if len(ok_fields) > 2 else "Cliente",
+            "token":   ok_fields[3] if len(ok_fields) > 3 else None,
+            "balance": ok_fields[4] if len(ok_fields) > 4 else None,
+        }
+
         if reason_code == "user_has_active_rental":
             print("[KIOSK] LOGIN_OK + RENTAL_DENIED(user_has_active_rental) — account_status (return)")
             state.take_inbound(LOGIN_OK)
             state.take_inbound(RENTAL_DENIED)
-            ok_fields = login_ok["fields"]
-            session["customer_auth"] = {
-                "user_id": ok_fields[1] if len(ok_fields) > 1 else None,
-                "name":    ok_fields[2] if len(ok_fields) > 2 else "Cliente",
-                "token":   ok_fields[3] if len(ok_fields) > 3 else None,
-                "balance": ok_fields[4] if len(ok_fields) > 4 else None,
-            }
+            session["customer_auth"] = auth
             session["account_flow"] = "return"
+            state.clear_pending()
+            return redirect(url_for("kiosk.station_account_status"))
+
+        if reason_code == "insufficient_balance":
+            print("[KIOSK] LOGIN_OK + RENTAL_DENIED(insufficient_balance) — account_status (topup)")
+            state.take_inbound(LOGIN_OK)
+            state.take_inbound(RENTAL_DENIED)
+            session["customer_auth"] = auth
+            # Pre-set the approved bike so that after a successful topup the
+            # user can proceed directly to payment without re-logging in.
+            session["approved_request"] = {"bike_id": STATION_BIKE_ID}
+            session.pop("account_flow", None)
             state.clear_pending()
             return redirect(url_for("kiosk.station_account_status"))
 
@@ -572,7 +588,21 @@ def station_topup_result():
 
     pending = state.get_pending()
     if pending is None:
-        return redirect(url_for("kiosk.station_home"))
+        # Reached here after a timeout — keep the user on the topup screen
+        # so they can retry with a new code. Do not send them home.
+        customer_auth = session.get("customer_auth") or {}
+        try:
+            balance = float(customer_auth.get("balance") or 0.0)
+        except (TypeError, ValueError):
+            balance = 0.0
+        return render_template(
+            "kiosk/topup.html",
+            station_name=STATION_NAME,
+            user_name=customer_auth.get("name") or "Usuario",
+            balance=balance,
+            error_message=_reason_to_human("timeout"),
+            success_message=None,
+        )
 
     return _render_waiting(
         kind="topup",
@@ -636,8 +666,20 @@ def station_status():
         return state.peek_inbound(mt) is not None
 
     if kind == "login":
-        if _has(LOGIN_FAIL) or _has(RENTAL_DENIED):
+        if _has(LOGIN_FAIL):
             return jsonify({"pending": False, "outcome": "denied"})
+        if _has(RENTAL_DENIED):
+            denied = state.peek_inbound(RENTAL_DENIED)
+            denied_fields = (denied or {}).get("fields", [])
+            reason = denied_fields[1] if len(denied_fields) > 1 else ""
+            if reason in ("insufficient_balance", "user_has_active_rental"):
+                # Wait for LOGIN_OK too — both flows need the token/name/balance
+                # from LOGIN_OK to display the next screen. Only redirect once
+                # both messages have arrived.
+                if _has(LOGIN_OK):
+                    return jsonify({"pending": False, "outcome": "denied"})
+            else:
+                return jsonify({"pending": False, "outcome": "denied"})
         if _has(LOGIN_OK) and _has(RENTAL_APPROVED):
             return jsonify({"pending": False, "outcome": "approved"})
     elif kind == "return":
