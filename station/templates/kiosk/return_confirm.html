@@ -1,95 +1,89 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Confirmar devolución — Giro Bicicleta</title>
-  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
-</head>
-<body>
-<div class="kv2-canvas sa" id="kv2">
-  <div class="kv2-split">
+{% extends "screens/base.html" %}
+{% block title %}Confirmar devolución — Giro Bicicleta{% endblock %}
 
-    <!-- Left panel -->
-    <div class="kv2-left">
-      <div class="lp-logo">
-        <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
-        <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
-      </div>
-      <div class="lp-station">
-        <div class="lp-label">Estación</div>
-        <div class="lp-sname">{{ station_name }}</div>
-      </div>
-      {% if user_name %}
-      <div class="lp-user">
-        <div class="lp-label">Usuario</div>
-        <div class="lp-uname">{{ user_name }}</div>
-      </div>
-      {% endif %}
-      <div class="lp-spacer"></div>
-      <div class="lp-steps">
-        <div class="lp-steps-hdr">Progreso</div>
-        <div class="lp-step">
-          <div class="lp-dot done">
-            <svg width="10" height="10" viewBox="0 0 28 28" fill="none"><path d="M5 14l7 7L23 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <span class="lp-step-txt done">Acceso</span>
+{% block content %}
+<div class="kv2-split">
+
+  <!-- Left panel -->
+  <div class="kv2-left">
+    <div class="lp-logo">
+      <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
+      <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+    </div>
+    <div class="lp-station">
+      <div class="lp-label">Estación</div>
+      <div class="lp-sname">{{ station_name }}</div>
+    </div>
+    {% if user_name %}
+    <div class="lp-user">
+      <div class="lp-label">Usuario</div>
+      <div class="lp-uname">{{ user_name }}</div>
+    </div>
+    {% endif %}
+    <div class="lp-spacer"></div>
+    <div class="lp-steps">
+      <div class="lp-steps-hdr">Progreso</div>
+      <div class="lp-step">
+        <div class="lp-dot done">
+          <svg width="10" height="10" viewBox="0 0 28 28" fill="none"><path d="M5 14l7 7L23 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <div class="lp-step">
-          <div class="lp-dot active"><span class="lp-step-num">2</span></div>
-          <span class="lp-step-txt active">Devolución</span>
-        </div>
-        <div class="lp-step">
-          <div class="lp-dot future"><span class="lp-step-num">3</span></div>
-          <span class="lp-step-txt future">Completado</span>
-        </div>
+        <span class="lp-step-txt done">Acceso</span>
+      </div>
+      <div class="lp-step">
+        <div class="lp-dot active"><span class="lp-step-num">2</span></div>
+        <span class="lp-step-txt active">Devolución</span>
+      </div>
+      <div class="lp-step">
+        <div class="lp-dot future"><span class="lp-step-num">3</span></div>
+        <span class="lp-step-txt future">Completado</span>
       </div>
     </div>
-
-    <!-- Right pane -->
-    <div class="kv2-right" style="gap:13px;">
-      <div class="c-eyebrow grn">Devolución</div>
-      <div class="c-title">Devolver aquí</div>
-
-      <div class="c-info-card grn">
-        <svg width="26" height="19" viewBox="0 0 32 23" fill="none">
-          <circle cx="6"  cy="17" r="4.5" stroke="#2f2925" stroke-width="2"/>
-          <circle cx="26" cy="17" r="4.5" stroke="#2f2925" stroke-width="2"/>
-          <polyline points="6,17 13,5 19,5 23,17" fill="none" stroke="#2f2925" stroke-width="2" stroke-linejoin="round"/>
-          <line x1="16" y1="5" x2="26" y2="17" stroke="#2f2925" stroke-width="2"/>
-          <line x1="9"  y1="5" x2="19" y2="5"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
-          <line x1="13" y1="5" x2="13" y2="2"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
-          <line x1="10" y1="2" x2="16" y2="2"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <div style="flex:1;">
-          <div class="c-card-val">{{ active_bike }}</div>
-          <div class="c-card-sub">{{ station_name }}</div>
-        </div>
-      </div>
-
-      <div class="c-hint">
-        Asegúrate de haber encajado la bicicleta en el andén antes de confirmar.
-      </div>
-
-      <form method="post" id="return-form">
-        <button type="submit" id="return-btn" class="btn-primary grn" style="width:100%;">
-          Confirmar devolución
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-            <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </form>
-
-      <form method="post" action="{{ url_for('kiosk.station_logout') }}">
-        <button type="submit" class="btn-secondary" style="width:100%;">Cancelar — cerrar sesión</button>
-      </form>
-    </div>
-
   </div>
+
+  <!-- Right pane -->
+  <div class="kv2-right" style="gap:13px;">
+    <div class="c-eyebrow grn">Devolución</div>
+    <div class="c-title">Devolver aquí</div>
+
+    <div class="c-info-card grn">
+      <svg width="26" height="19" viewBox="0 0 32 23" fill="none">
+        <circle cx="6"  cy="17" r="4.5" stroke="#2f2925" stroke-width="2"/>
+        <circle cx="26" cy="17" r="4.5" stroke="#2f2925" stroke-width="2"/>
+        <polyline points="6,17 13,5 19,5 23,17" fill="none" stroke="#2f2925" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="16" y1="5" x2="26" y2="17" stroke="#2f2925" stroke-width="2"/>
+        <line x1="9"  y1="5" x2="19" y2="5"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
+        <line x1="13" y1="5" x2="13" y2="2"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
+        <line x1="10" y1="2" x2="16" y2="2"  stroke="#2f2925" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div style="flex:1;">
+        <div class="c-card-val">{{ active_bike }}</div>
+        <div class="c-card-sub">{{ station_name }}</div>
+      </div>
+    </div>
+
+    <div class="c-hint">
+      Asegúrate de haber encajado la bicicleta en el andén antes de confirmar.
+    </div>
+
+    <form method="post" id="return-form">
+      <button type="submit" id="return-btn" class="btn-primary grn" style="width:100%;">
+        Confirmar devolución
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </form>
+
+    <form method="post" action="{{ url_for('kiosk.station_logout') }}">
+      <button type="submit" class="btn-secondary" style="width:100%;">Cancelar — cerrar sesión</button>
+    </form>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
-(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
 (function(){
   var form=document.getElementById('return-form');
   var btn =document.getElementById('return-btn');
@@ -99,5 +93,4 @@
   });
 })();
 </script>
-</body>
-</html>
+{% endblock %}

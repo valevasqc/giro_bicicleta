@@ -1,5 +1,7 @@
 """Top-up code redemption and generation."""
 
+# TODO worth checking if you can drop SF from 9 to a slightly higher SF (SF10 or SF11) if range is the bigger concern, or keep SF9 and improve the link with the antennas.
+
 from __future__ import annotations
 
 import random

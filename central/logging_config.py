@@ -40,3 +40,7 @@ def setup_logging() -> None:
     root.setLevel(logging.DEBUG)
     root.addHandler(fh)
     root.addHandler(ch)
+
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+# tail -f central/logs/central.log | grep -E "RENTAL|RETURN|TOPUP|ERROR"

@@ -1,0 +1,117 @@
+/* ── Virtual keyboard overlay ─────────────────────────────────────────── */
+
+#vk-wrap {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 900;
+  padding: 8px 8px 5px;
+  background: rgba(30, 24, 20, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  transform: translateY(100%);
+  transition: transform 180ms ease-out;
+}
+
+#vk-wrap.vk-visible {
+  transform: translateY(0);
+}
+
+/* ── Override simple-keyboard default theme ───────────────────────────── */
+
+#vk-wrap .hg-theme-default {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  font-family: "Chillax", sans-serif;
+}
+
+#vk-wrap .hg-theme-default .hg-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#vk-wrap .hg-theme-default .hg-row {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+}
+
+#vk-wrap .hg-theme-default .hg-row:not(:last-child) {
+  margin-bottom: 0;
+}
+
+#vk-wrap .hg-theme-default .hg-button {
+  height: 52px;
+  min-width: 0;
+  flex: 1;
+  background: #38302a;
+  color: #f0e8e0;
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 2px 0 #18120e;
+  font-family: "Chillax", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 80ms, transform 60ms;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+#vk-wrap .hg-theme-default .hg-button:active,
+#vk-wrap .hg-theme-default .hg-button.hg-activeButton {
+  background: #a22521;
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* ── Special keys ─────────────────────────────────────────────────────── */
+
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{shift}"],
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{bksp}"] {
+  flex: 1.6;
+  font-size: 20px;
+}
+
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{space}"] {
+  flex: 4;
+  font-size: 12px;
+}
+
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{enter}"] {
+  flex: 2.4;
+  font-size: 20px;
+  background: #3f6736;
+  box-shadow: 0 2px 0 #1d3019;
+}
+
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{enter}"]:active {
+  background: #2f4f29;
+  box-shadow: none;
+}
+
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{numbers}"],
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{abc}"] {
+  flex: 1.6;
+  font-size: 13px;
+  background: #271f1a;
+  box-shadow: 0 2px 0 #100c09;
+}
+
+/* Shift active indicator */
+#vk-wrap .hg-theme-default .hg-button[data-skbtn="{shift}"].vk-shift-active {
+  background: #a22521;
+  box-shadow: 0 2px 0 #5a1210;
+}
+
+/* ── When keyboard is open: pin content to top and allow scroll ────────── */
+
+#kv2.vk-open .kv2-right {
+  justify-content: flex-start;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>{% block title %}Giro Bicicleta{% endblock %}</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@3.8.24/build/css/index.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/keyboard.css') }}"/>
+  {% block extra_head %}{% endblock %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+<div class="kv2-canvas {% block canvas_anim %}sa{% endblock %}" id="kv2">
+  {% block content %}{% endblock %}
+</div>
+{% block extra_scripts %}{% endblock %}
+<script>(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();</script>
+<script src="https://cdn.jsdelivr.net/npm/simple-keyboard@3.8.24/build/index.umd.js"></script>
+<script src="{{ url_for('static', filename='js/keyboard.js') }}"></script>
+</body>
+</html>

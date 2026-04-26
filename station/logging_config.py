@@ -40,3 +40,5 @@ def setup_logging() -> None:
     root.setLevel(logging.DEBUG)
     root.addHandler(fh)
     root.addHandler(ch)
+
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)

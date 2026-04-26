@@ -1,31 +1,24 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Procesando — Giro Bicicleta</title>
-  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk/kiosk_v2.css') }}"/>
-</head>
-<body>
-<div class="kv2-canvas fa" id="kv2">
-  <div class="waiting-screen">
-    <div class="waiting-ring">
-      <div class="waiting-pulse"></div>
-      <div class="waiting-pulse"></div>
-      <div class="waiting-pulse"></div>
-      <div class="waiting-spinner"></div>
-    </div>
-    <div class="waiting-text">
-      <div class="waiting-title" id="w-title">Verificando</div>
-      <div class="waiting-sub"   id="w-sub">Consultando el estado…</div>
-    </div>
+{% extends "screens/base.html" %}
+{% block title %}Procesando — Giro Bicicleta{% endblock %}
+{% block canvas_anim %}fa{% endblock %}
+
+{% block content %}
+<div class="waiting-screen">
+  <div class="waiting-ring">
+    <div class="waiting-pulse"></div>
+    <div class="waiting-pulse"></div>
+    <div class="waiting-pulse"></div>
+    <div class="waiting-spinner"></div>
+  </div>
+  <div class="waiting-text">
+    <div class="waiting-title" id="w-title">Verificando</div>
+    <div class="waiting-sub"   id="w-sub">Consultando el estado…</div>
   </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
-(function(){var c=document.getElementById('kv2');function s(){var sc=Math.min(window.innerWidth/800,window.innerHeight/480);c.style.transform='scale('+sc+')';}s();window.addEventListener('resize',s);})();
-
 (function() {
   var pollUrl     = {{ poll_url | tojson }};
   var resultUrl   = {{ result_url | tojson }};
@@ -69,5 +62,4 @@
   poll();
 })();
 </script>
-</body>
-</html>
+{% endblock %}
