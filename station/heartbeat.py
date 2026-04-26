@@ -9,8 +9,11 @@ errors are logged and the loop continues on the next tick.
 
 from __future__ import annotations
 
+import logging
 import threading
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 try:
     from common.lora_protocol import HEARTBEAT, format_message
@@ -57,4 +60,4 @@ class HeartbeatSender(threading.Thread):
                 _utc_iso(),
             ))
         except Exception as exc:
-            print(f"[HEARTBEAT] tick failed: {exc!r}")
+            logger.warning("[HEARTBEAT] tick failed: %r", exc)

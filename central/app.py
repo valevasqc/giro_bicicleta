@@ -1,4 +1,5 @@
 import json
+import logging
 import secrets
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,7 @@ try:
         GEOFENCE_RADIUS_M,
     )
     from .services import topup_service
+    from .logging_config import setup_logging
 except ImportError:
     from database import get_connection, init_db, log_event
     from pricing import calculate_duration_minutes, calculate_cost
@@ -51,6 +53,10 @@ except ImportError:
         GEOFENCE_RADIUS_M,
     )
     import services.topup_service as topup_service
+    from logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
@@ -79,7 +85,7 @@ lora_receiver = LoRaReceiver(
 lora_receiver.start()
 app.extensions["lora_receiver"] = lora_receiver
 
-print(f"[CENTRAL] LoRa ready (stub={STUB_LORA})")
+logger.info("LoRa ready (stub=%s)", STUB_LORA)
 
 STATION_SERVICE_TOKEN_CACHE = {}
 

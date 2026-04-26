@@ -11,9 +11,12 @@ Every message terminates with "\n" so the receiver can read line-by-line.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     import serial
@@ -61,9 +64,9 @@ class LoRaSender:
                 )
                 with self._lock:
                     self._serial = ser
-                print(f"[LORA] connected to {self._serial_port}")
+                logger.info("[LORA] connected to %s", self._serial_port)
             except Exception as exc:
-                print(f"[LORA] serial unavailable: {exc} — retrying in 5s")
+                logger.warning("[LORA] serial unavailable: %s — retrying in 5s", exc)
                 time.sleep(5)
 
     @property
@@ -87,16 +90,16 @@ class LoRaSender:
                 with self._stub_path.open("a", encoding="utf-8") as fh:
                     fh.write(line)
                     fh.flush()
-                print(f"[LORA STUB -> station] {line.rstrip()}")
+                logger.debug("[LORA STUB -> station] %s", line.rstrip())
                 return
             if self._serial is None or not self._serial.is_open:
-                print(f"[LORA] no connection — dropping: {line.rstrip()}")
+                logger.warning("[LORA] no connection — dropping: %s", line.rstrip())
                 return
             try:
                 self._serial.write(line.encode("utf-8"))
                 self._serial.flush()
             except Exception as exc:
-                print(f"[LORA] send error: {exc} — will reconnect")
+                logger.warning("[LORA] send error: %s — will reconnect", exc)
                 try:
                     self._serial.close()
                 except Exception:

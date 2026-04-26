@@ -31,6 +31,10 @@ htmlcov/
 # Flask instance/config runtime files
 instance/
 
+# Log directories
+central/logs/
+station/logs/
+
 # Local databases and logs
 *.db
 *.sqlite

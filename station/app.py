@@ -7,6 +7,7 @@ receiver thread. No database, no HTTP to central — everything goes over
 the LoRa sender attached at startup.
 """
 
+import logging
 import sys
 from pathlib import Path
 
@@ -41,7 +42,11 @@ from station.gpio_driver import GPIODriver
 from station.heartbeat import HeartbeatSender
 from station.lora_receiver import LoRaReceiver
 from station.lora_sender import LoRaSender
+from station.logging_config import setup_logging
 from station.routes.kiosk import bp as kiosk_bp
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # TODO add mock QR log in
 def create_app() -> Flask:
@@ -93,10 +98,9 @@ def create_app() -> Flask:
     heartbeat.start()
     app.extensions["heartbeat"] = heartbeat
 
-    print(
-        f"[STATION {STATION_ID}] Flask ready on "
-        f"http://{STATION_HTTP_HOST}:{STATION_HTTP_PORT}  "
-        f"(LoRa stub={STUB_LORA}, lock stub={STUB_LOCK}, sensors stub={STUB_SENSORS})"
+    logger.info(
+        "[STATION %s] Flask ready on http://%s:%s  (LoRa stub=%s, lock stub=%s, sensors stub=%s)",
+        STATION_ID, STATION_HTTP_HOST, STATION_HTTP_PORT, STUB_LORA, STUB_LOCK, STUB_SENSORS,
     )
     return app
 

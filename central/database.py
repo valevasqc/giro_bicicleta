@@ -1,5 +1,8 @@
+import logging
 import sqlite3
 import json
+
+logger = logging.getLogger(__name__)
 
 try:
     from .config import DB_PATH, SCHEMA_PATH
@@ -75,5 +78,6 @@ def log_event(source: str, event_type: str, payload=None):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s [%(module)s] %(message)s")
     init_db()
-    print(f"Database created at: {DB_PATH}")
+    logger.info("Database created at: %s", DB_PATH)

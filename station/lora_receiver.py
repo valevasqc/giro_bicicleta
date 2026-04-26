@@ -13,9 +13,12 @@ Two modes mirror LoRaSender:
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     import serial
@@ -68,7 +71,7 @@ class LoRaReceiver(threading.Thread):
 
         # Start at EOF so we don't replay historical messages on restart.
         offset = self._stub_path.stat().st_size
-        print(f"[LORA STUB] receiver tailing {self._stub_path} from offset {offset}")
+        logger.info("[LORA STUB] receiver tailing %s from offset %d", self._stub_path, offset)
 
         buffer = ""
         while not self._stop.is_set():
@@ -95,7 +98,7 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        print(f"[LORA RX] serial mode on {self._serial_port}, waiting for connection…")
+        logger.info("[LORA RX] serial mode on %s, waiting for connection…", self._serial_port)
         while not self._stop.is_set():
             # Get the sender's current serial each iteration so reconnects are transparent.
             ser = getattr(self._serial_obj, "serial", None) if self._serial_obj is not None else None
@@ -106,7 +109,7 @@ class LoRaReceiver(threading.Thread):
             try:
                 raw = ser.readline()
             except Exception as exc:
-                print(f"[LORA RX] serial read error: {exc}")
+                logger.warning("[LORA RX] serial read error: %s", exc)
                 time.sleep(self._poll_interval)
                 continue
 
@@ -122,10 +125,10 @@ class LoRaReceiver(threading.Thread):
         # Keep TX result: visible — it only appears on TX failure in new firmware.
         if not stripped or stripped.startswith("#") or stripped.startswith("READY"):
             return
-        print(f"[LORA RX DEBUG] handle_line: {stripped!r}")
+        logger.debug("[LORA RX] handle_line: %r", stripped)
         parsed = parse_message(line)
         if parsed is None:
-            print(f"[LORA RX] dropped unparseable line: {line!r}")
+            logger.warning("[LORA RX] dropped unparseable line: %r", line)
             return
 
         msg_type, fields = parsed
@@ -133,5 +136,5 @@ class LoRaReceiver(threading.Thread):
         # Drop anything not addressed to us (first field is station_id).
         if not fields or fields[0] != STATION_ID:
             return
-        print(f"[LORA <- central] {msg_type} {fields}")
+        logger.info("[LORA <- central] %s %s", msg_type, fields)
         state.record_inbound(msg_type, fields)

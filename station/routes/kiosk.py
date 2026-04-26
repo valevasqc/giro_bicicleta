@@ -20,6 +20,7 @@ until LORA_REPLY_TIMEOUT_SECONDS elapses — no crashes, just a visible
 timeout. That's the explicit next step.
 """
 
+import logging
 from datetime import datetime, timezone
 
 from flask import (
@@ -77,6 +78,7 @@ from ..config import (
 )
 
 bp = Blueprint("kiosk", __name__)
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -172,9 +174,9 @@ def station_login():
         state.set_pending("login", {"username": username, "bike_id": STATION_BIKE_ID})
 
         msg = format_message(RENTAL_REQUEST, STATION_ID, STATION_BIKE_ID, username, password, _utc_iso())
-        print(f"[KIOSK] sending RENTAL_REQUEST for user={username!r} bike={STATION_BIKE_ID}")
+        logger.info("[KIOSK] sending RENTAL_REQUEST for user=%r bike=%s", username, STATION_BIKE_ID)
         _lora_send(msg)
-        print(f"[KIOSK] RENTAL_REQUEST sent, waiting for reply…")
+        logger.debug("[KIOSK] RENTAL_REQUEST sent, waiting for reply…")
 
         return redirect(url_for("kiosk.station_rental_request_result"))
 
@@ -204,12 +206,12 @@ def station_rental_request_result():
     login_fail     = state.peek_inbound(LOGIN_FAIL)
     rental_approved = state.peek_inbound(RENTAL_APPROVED)
     rental_denied   = state.peek_inbound(RENTAL_DENIED)
-    print(f"[KIOSK] rental-request check  ok={bool(login_ok)} fail={bool(login_fail)} "
-          f"approved={bool(rental_approved)} denied={bool(rental_denied)}")
+    logger.debug("[KIOSK] rental-request check  ok=%s fail=%s approved=%s denied=%s",
+                 bool(login_ok), bool(login_fail), bool(rental_approved), bool(rental_denied))
 
     # ── LOGIN_OK + RENTAL_APPROVED → can rent, go to account status ──
     if login_ok and rental_approved:
-        print("[KIOSK] LOGIN_OK + RENTAL_APPROVED — account_status (rent)")
+        logger.info("[KIOSK] LOGIN_OK + RENTAL_APPROVED — account_status (rent)")
         state.take_inbound(LOGIN_OK)
         state.take_inbound(RENTAL_APPROVED)
         ok_fields = login_ok["fields"]
@@ -237,7 +239,7 @@ def station_rental_request_result():
         }
 
         if reason_code == "user_has_active_rental":
-            print("[KIOSK] LOGIN_OK + RENTAL_DENIED(user_has_active_rental) — account_status (return)")
+            logger.info("[KIOSK] LOGIN_OK + RENTAL_DENIED(user_has_active_rental) — account_status (return)")
             state.take_inbound(LOGIN_OK)
             state.take_inbound(RENTAL_DENIED)
             session["customer_auth"] = auth
@@ -246,7 +248,7 @@ def station_rental_request_result():
             return redirect(url_for("kiosk.station_account_status"))
 
         if reason_code == "insufficient_balance":
-            print("[KIOSK] LOGIN_OK + RENTAL_DENIED(insufficient_balance) — account_status (topup)")
+            logger.info("[KIOSK] LOGIN_OK + RENTAL_DENIED(insufficient_balance) — account_status (topup)")
             state.take_inbound(LOGIN_OK)
             state.take_inbound(RENTAL_DENIED)
             session["customer_auth"] = auth
@@ -267,7 +269,7 @@ def station_rental_request_result():
         state.clear_pending()
         fields = fail["fields"]
         reason = fields[1] if len(fields) > 1 else "invalid_credentials"
-        print(f"[KIOSK] DENIED — reason={reason!r}")
+        logger.info("[KIOSK] DENIED — reason=%r", reason)
         return render_template(
             "kiosk/request_result.html",
             station_id=STATION_ID,
@@ -393,7 +395,7 @@ def station_return_confirm():
         state.take_inbound(RETURN_COMPLETE)
         state.set_pending("return", {"bike_id": bike_id})
         msg = format_message(BIKE_DOCKED, STATION_ID, bike_id, _utc_iso())
-        print(f"[KIOSK] sending BIKE_DOCKED for bike={bike_id} (return_confirm)")
+        logger.info("[KIOSK] sending BIKE_DOCKED for bike=%s (return_confirm)", bike_id)
         _lora_send(msg)
         return _render_waiting(
             kind="return",
@@ -434,9 +436,9 @@ def station_complete_return():
     state.set_pending("return", {"bike_id": bike_id})
 
     msg = format_message(BIKE_DOCKED, STATION_ID, bike_id, _utc_iso())
-    print(f"[KIOSK] sending BIKE_DOCKED for bike={bike_id}")
+    logger.info("[KIOSK] sending BIKE_DOCKED for bike=%s", bike_id)
     _lora_send(msg)
-    print(f"[KIOSK] BIKE_DOCKED sent, waiting for RETURN_COMPLETE…")
+    logger.debug("[KIOSK] BIKE_DOCKED sent, waiting for RETURN_COMPLETE…")
 
     # Render a waiting page that will redirect to this same endpoint (GET)
     # once central replies. GET handler below consumes RETURN_COMPLETE.
@@ -448,10 +450,11 @@ def station_complete_return():
 
 @bp.route("/station/return-result", methods=["GET"], endpoint="station_return_result")
 def station_return_result():
-    print(f"[KIOSK] return-result check  RETURN_COMPLETE_in_inbox={state.peek_inbound(RETURN_COMPLETE) is not None}")
+    logger.debug("[KIOSK] return-result check  RETURN_COMPLETE_in_inbox=%s",
+                 state.peek_inbound(RETURN_COMPLETE) is not None)
     reply = state.peek_inbound(RETURN_COMPLETE)
     if reply:
-        print(f"[KIOSK] RETURN_COMPLETE received — rendering summary")
+        logger.info("[KIOSK] RETURN_COMPLETE received — rendering summary")
         state.take_inbound(RETURN_COMPLETE)
         state.clear_pending()
         # RETURN_COMPLETE|station_id|bike_id|name|duration_minutes|cost|balance_remaining|ts
@@ -523,7 +526,7 @@ def station_topup():
 
         state.set_pending("topup", {"code": code})
         msg = format_message(TOPUP_REQUEST, STATION_ID, token, code, _utc_iso())
-        print(f"[KIOSK] sending TOPUP_REQUEST code={code!r}")
+        logger.info("[KIOSK] sending TOPUP_REQUEST code=%r", code)
         _lora_send(msg)
         return redirect(url_for("kiosk.station_topup_result"))
 

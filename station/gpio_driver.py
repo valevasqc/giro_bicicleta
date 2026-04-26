@@ -1,5 +1,8 @@
+import logging
 import threading
 import time
+
+logger = logging.getLogger(__name__)
 
 
 class GPIODriver:
@@ -60,7 +63,7 @@ class GPIODriver:
         In stub mode always returns True.
         """
         if self._stub_lock:
-            print(f"[GPIO STUB] unlock_for_seconds({duration}s) on LOCK_PIN={self._lock_pin}")
+            logger.debug("[GPIO STUB] unlock_for_seconds(%ss) on LOCK_PIN=%s", duration, self._lock_pin)
             return True
 
         if self._lock_pin is None:
@@ -76,7 +79,7 @@ class GPIODriver:
             threading.Thread(target=_relock, daemon=True).start()
             return True
         except Exception as exc:
-            print(f"[GPIO] unlock_for_seconds failed: {exc}")
+            logger.warning("[GPIO] unlock_for_seconds failed: %s", exc)
             return False
 
     def read_dock_occupied(self) -> bool:
@@ -85,9 +88,7 @@ class GPIODriver:
         In stub mode returns configured stub_dock_occupied default.
         """
         if self._stub_sensors:
-            print(
-                f"[GPIO STUB] read_dock_occupied() on DOCK_PIN={self._dock_pin} -> {self._stub_dock_occupied}"
-            )
+            logger.debug("[GPIO STUB] read_dock_occupied() on DOCK_PIN=%s -> %s", self._dock_pin, self._stub_dock_occupied)
             return self._stub_dock_occupied
 
         if self._dock_pin is None:
@@ -96,7 +97,7 @@ class GPIODriver:
         try:
             return not bool(self._GPIO.input(self._dock_pin))  # active-low
         except Exception as exc:
-            print(f"[GPIO] read_dock_occupied failed: {exc}")
+            logger.warning("[GPIO] read_dock_occupied failed: %s", exc)
             return False
 
     def read_charge_connected(self) -> bool:
@@ -105,9 +106,7 @@ class GPIODriver:
         In stub mode returns configured stub_charge_connected default.
         """
         if self._stub_sensors:
-            print(
-                f"[GPIO STUB] read_charge_connected() on CHARGE_PIN={self._charge_pin} -> {self._stub_charge_connected}"
-            )
+            logger.debug("[GPIO STUB] read_charge_connected() on CHARGE_PIN=%s -> %s", self._charge_pin, self._stub_charge_connected)
             return self._stub_charge_connected
 
         if self._charge_pin is None:
@@ -116,7 +115,7 @@ class GPIODriver:
         try:
             return not bool(self._GPIO.input(self._charge_pin))  # active-low
         except Exception as exc:
-            print(f"[GPIO] read_charge_connected failed: {exc}")
+            logger.warning("[GPIO] read_charge_connected failed: %s", exc)
             return False
 
     def read_lock_confirmed(self) -> bool:

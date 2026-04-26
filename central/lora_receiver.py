@@ -15,6 +15,7 @@ bad message logs and is skipped; the thread never dies on bad input.
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 import time
@@ -93,6 +94,7 @@ except ImportError:
 
 from werkzeug.security import check_password_hash
 
+logger = logging.getLogger(__name__)
 
 TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -155,7 +157,7 @@ class LoRaReceiver(threading.Thread):
         self._stub_path.touch(exist_ok=True)
 
         offset = self._stub_path.stat().st_size
-        print(f"[LORA STUB] central receiver tailing {self._stub_path} from offset {offset}")
+        logger.info("[LORA STUB] central receiver tailing %s from offset %d", self._stub_path, offset)
 
         buffer = ""
         while not self._stop.is_set():
@@ -182,7 +184,7 @@ class LoRaReceiver(threading.Thread):
         if serial is None:
             raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
 
-        print(f"[LORA RX] serial mode on {self._serial_port}, waiting for connection…")
+        logger.info("[LORA RX] serial mode on %s, waiting for connection…", self._serial_port)
         while not self._stop.is_set():
             # Re-fetch serial from sender each iteration so reconnects are transparent.
             ser = getattr(self._sender, "serial", None)
@@ -193,7 +195,7 @@ class LoRaReceiver(threading.Thread):
             try:
                 raw = ser.readline()
             except Exception as exc:
-                print(f"[LORA RX] serial read error: {exc}")
+                logger.warning("[LORA RX] serial read error: %s", exc)
                 time.sleep(self._poll_interval)
                 continue
 
@@ -209,14 +211,17 @@ class LoRaReceiver(threading.Thread):
         # Keep TX result: visible — it only appears on TX failure in new firmware.
         if not stripped or stripped.startswith("#") or stripped.startswith("READY"):
             return
-        print(f"[LORA RX DEBUG] handle_line: {stripped!r}")
+        logger.debug("[LORA RX] handle_line: %r", stripped)
         parsed = parse_message(line)
         if parsed is None:
-            print(f"[LORA RX] dropped unparseable line: {line!r}")
+            logger.warning("[LORA RX] dropped unparseable line: %r", line)
             return
 
         msg_type, fields = parsed
-        print(f"[LORA <- station] {msg_type} {fields}")
+        if msg_type in (HEARTBEAT, GPS):
+            logger.debug("[LORA <- station] %s %s", msg_type, fields)
+        else:
+            logger.info("[LORA <- station] %s %s", msg_type, fields)
 
         try:
             if msg_type == HEARTBEAT:
@@ -232,15 +237,15 @@ class LoRaReceiver(threading.Thread):
             elif msg_type == TOPUP_REQUEST:
                 self._handle_topup_request(fields)
             else:
-                print(f"[LORA] ignoring central-bound or unknown type: {msg_type}")
+                logger.debug("[LORA] ignoring central-bound or unknown type: %s", msg_type)
         except Exception as exc:
-            print(f"[LORA] handler {msg_type} crashed: {exc!r} — fields={fields}")
+            logger.error("[LORA] handler %s crashed: %r — fields=%s", msg_type, exc, fields)
 
     # --- handlers -------------------------------------------------------
     def _handle_heartbeat(self, fields) -> None:
         # HEARTBEAT|station_id|dock_occupied|charging_connected|ts
         if len(fields) < 4:
-            print(f"[LORA] HEARTBEAT: expected 4 fields, got {len(fields)}")
+            logger.warning("[LORA] HEARTBEAT: expected 4 fields, got %d", len(fields))
             return
 
         station_id = fields[0].strip()
@@ -254,7 +259,7 @@ class LoRaReceiver(threading.Thread):
                 (station_id,),
             ).fetchone()
             if not row:
-                print(f"[LORA] HEARTBEAT: unknown station {station_id!r}")
+                logger.warning("[LORA] HEARTBEAT: unknown station %r", station_id)
                 return
 
             conn.execute(
@@ -283,17 +288,17 @@ class LoRaReceiver(threading.Thread):
     def _handle_rental_request(self, fields) -> None:
         # RENTAL_REQUEST|station_id|bike_id|username|password|ts
         if len(fields) < 5:
-            print(f"[LORA] RENTAL_REQUEST: expected 5 fields, got {len(fields)}")
+            logger.warning("[LORA] RENTAL_REQUEST: expected 5 fields, got %d", len(fields))
             return
 
         station_id = fields[0].strip()
         bike_id = fields[1].strip()
         username = fields[2].strip()
         password = fields[3]  # do not strip — passwords may be whitespace-sensitive
-        print(f"[LORA] RENTAL_REQUEST: station={station_id} bike={bike_id} user={username!r}")
+        logger.info("[LORA] RENTAL_REQUEST: station=%s bike=%s user=%r", station_id, bike_id, username)
 
         def deny(reason: str) -> None:
-            print(f"[LORA] RENTAL_DENIED → {station_id}: {reason}")
+            logger.info("[LORA] RENTAL_DENIED → %s: %s", station_id, reason)
             msg = format_message(RENTAL_DENIED, station_id, reason, _utc_iso())
             self._sender.send(msg)
             time.sleep(2)
@@ -305,7 +310,7 @@ class LoRaReceiver(threading.Thread):
             )
 
         def login_fail(reason: str) -> None:
-            print(f"[LORA] LOGIN_FAIL → {station_id}: {reason}")
+            logger.info("[LORA] LOGIN_FAIL → %s: %s", station_id, reason)
             msg = format_message(LOGIN_FAIL, station_id, reason, _utc_iso())
             self._sender.send(msg)
             time.sleep(2)
@@ -327,11 +332,11 @@ class LoRaReceiver(threading.Thread):
             ).fetchone()
 
             if not user:
-                print(f"[LORA] RENTAL_REQUEST: user {username!r} not found")
+                logger.warning("[LORA] RENTAL_REQUEST: user %r not found", username)
                 login_fail("invalid_credentials")
                 return
             if not check_password_hash(user["password_hash"], password):
-                print(f"[LORA] RENTAL_REQUEST: bad password for {username!r}")
+                logger.warning("[LORA] RENTAL_REQUEST: bad password for %r", username)
                 login_fail("invalid_credentials")
                 return
 
@@ -354,7 +359,7 @@ class LoRaReceiver(threading.Thread):
                 return
 
             balance = float(user["balance"] or 0.0)
-            print(f"[LORA] RENTAL_REQUEST: balance={balance:.2f}  minimum={MINIMUM_BALANCE_TO_RENT}")
+            logger.debug("[LORA] RENTAL_REQUEST: balance=%.2f  minimum=%s", balance, MINIMUM_BALANCE_TO_RENT)
 
             # Mint the session token before any rental-eligibility checks so
             # LOGIN_OK can always be paired with RENTAL_DENIED (return flow,
@@ -389,10 +394,10 @@ class LoRaReceiver(threading.Thread):
                     (bike_id,),
                 ).fetchone()
                 if not bike:
-                    print(f"[LORA] RENTAL_REQUEST: bike {bike_id!r} not in DB")
+                    logger.warning("[LORA] RENTAL_REQUEST: bike %r not in DB", bike_id)
                     deny("bike_not_available")
                     return
-                print(f"[LORA] RENTAL_REQUEST: bike status={bike['status']} at={bike['current_station_id']!r}")
+                logger.debug("[LORA] RENTAL_REQUEST: bike status=%s at=%r", bike['status'], bike['current_station_id'])
                 if bike["status"] != "docked":
                     deny("bike_not_available")
                     return
@@ -415,11 +420,11 @@ class LoRaReceiver(threading.Thread):
         # messages twice so a single packet loss doesn't strand the station.
         def _send_login_ok_denied(reason: str) -> None:
             denied_msg = format_message(RENTAL_DENIED, station_id, reason, ts)
-            print(f"[LORA] LOGIN_OK + RENTAL_DENIED({reason}) → {station_id} (attempt 1)")
+            logger.info("[LORA] LOGIN_OK + RENTAL_DENIED(%s) → %s (attempt 1)", reason, station_id)
             self._sender.send(login_ok_msg)
             self._sender.send(denied_msg)
             time.sleep(3)
-            print(f"[LORA] LOGIN_OK + RENTAL_DENIED({reason}) → {station_id} (attempt 2)")
+            logger.info("[LORA] LOGIN_OK + RENTAL_DENIED(%s) → %s (attempt 2)", reason, station_id)
             self._sender.send(login_ok_msg)
             self._sender.send(denied_msg)
             self._safe_log_event(
@@ -441,11 +446,11 @@ class LoRaReceiver(threading.Thread):
         # Both messages sent as a pair twice — if either is lost in the first
         # attempt the retry at +3 s gives the station a second chance.
         approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, user_id, ts)
-        print(f"[LORA] LOGIN_OK + RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 1)")
+        logger.info("[LORA] LOGIN_OK + RENTAL_APPROVED → %s  bike=%s (attempt 1)", station_id, bike_id)
         self._sender.send(login_ok_msg)
         self._sender.send(approved_msg)
         time.sleep(3)
-        print(f"[LORA] LOGIN_OK + RENTAL_APPROVED → {station_id}  bike={bike_id} (attempt 2)")
+        logger.info("[LORA] LOGIN_OK + RENTAL_APPROVED → %s  bike=%s (attempt 2)", station_id, bike_id)
         self._sender.send(login_ok_msg)
         self._sender.send(approved_msg)
         self._safe_log_event(
@@ -457,7 +462,7 @@ class LoRaReceiver(threading.Thread):
     def _handle_bike_released(self, fields) -> None:
         # BIKE_RELEASED|station_id|bike_id|user_id|ts
         if len(fields) < 4:
-            print(f"[LORA] BIKE_RELEASED: expected 4 fields, got {len(fields)}")
+            logger.warning("[LORA] BIKE_RELEASED: expected 4 fields, got %d", len(fields))
             return
 
         station_id = fields[0].strip()
@@ -474,7 +479,7 @@ class LoRaReceiver(threading.Thread):
                 (bike_id,),
             ).fetchone()
             if not bike or bike["status"] != "docked" or bike["current_station_id"] != station_id:
-                print(f"[LORA] BIKE_RELEASED: bike {bike_id} not docked at {station_id}; ignoring")
+                logger.warning("[LORA] BIKE_RELEASED: bike %s not docked at %s; ignoring", bike_id, station_id)
                 return
 
             user = conn.execute(
@@ -482,7 +487,7 @@ class LoRaReceiver(threading.Thread):
                 (user_id,),
             ).fetchone()
             if not user:
-                print(f"[LORA] BIKE_RELEASED: unknown/inactive user {user_id!r}; ignoring")
+                logger.warning("[LORA] BIKE_RELEASED: unknown/inactive user %r; ignoring", user_id)
                 return
 
             active_user_rental = conn.execute(
@@ -490,7 +495,7 @@ class LoRaReceiver(threading.Thread):
                 (user_id,),
             ).fetchone()
             if active_user_rental:
-                print(f"[LORA] BIKE_RELEASED: user {user_id} already has an active rental; ignoring")
+                logger.warning("[LORA] BIKE_RELEASED: user %s already has an active rental; ignoring", user_id)
                 return
 
             rental_id = str(uuid4())
@@ -529,7 +534,7 @@ class LoRaReceiver(threading.Thread):
     def _handle_bike_docked(self, fields) -> None:
         # BIKE_DOCKED|station_id|bike_id|ts
         if len(fields) < 3:
-            print(f"[LORA] BIKE_DOCKED: expected 3 fields, got {len(fields)}")
+            logger.warning("[LORA] BIKE_DOCKED: expected 3 fields, got %d", len(fields))
             return
 
         station_id = fields[0].strip()
@@ -552,7 +557,7 @@ class LoRaReceiver(threading.Thread):
                 # Idempotent: the station may re-send BIKE_DOCKED if it lost
                 # our reply, or the bike may already be docked for an admin
                 # reason. Log and move on — nothing to bill.
-                print(f"[LORA] BIKE_DOCKED: no active rental for {bike_id}; ignoring")
+                logger.info("[LORA] BIKE_DOCKED: no active rental for %s; ignoring", bike_id)
                 self._safe_log_event(
                     source=station_id,
                     event_type="BIKE_DOCKED_NO_ACTIVE_RENTAL",
@@ -616,7 +621,7 @@ class LoRaReceiver(threading.Thread):
             rental_id = rental["rental_id"]
 
         # RETURN_COMPLETE|station_id|bike_id|name|duration_minutes|cost|balance_remaining|ts
-        self._sender.send(format_message(
+        rc_msg = format_message(
             RETURN_COMPLETE,
             station_id,
             bike_id,
@@ -625,7 +630,15 @@ class LoRaReceiver(threading.Thread):
             f"{simulated_cost:.2f}",
             f"{balance_remaining:.2f}",
             _utc_iso(),
-        ))
+        )
+        logger.info(
+            "[LORA] RETURN_COMPLETE → %s  user=%s duration=%.1fmin cost=%s balance=%s",
+            station_id, user_name, duration_minutes, simulated_cost, balance_remaining,
+        )
+        self._sender.send(rc_msg)
+        time.sleep(2)
+        logger.info("[LORA] RETURN_COMPLETE → %s (attempt 2)", station_id)
+        self._sender.send(rc_msg)
         self._safe_log_event(
             source=station_id,
             event_type="RENTAL_COMPLETED",
@@ -642,13 +655,13 @@ class LoRaReceiver(threading.Thread):
     def _handle_topup_request(self, fields) -> None:
         # TOPUP_REQUEST|station_id|token|code|ts
         if len(fields) < 3:
-            print(f"[LORA] TOPUP_REQUEST: expected ≥3 fields, got {len(fields)}")
+            logger.warning("[LORA] TOPUP_REQUEST: expected ≥3 fields, got %d", len(fields))
             return
 
         station_id = fields[0].strip()
         token = fields[1].strip()
         code = fields[2].strip()
-        print(f"[LORA] TOPUP_REQUEST: station={station_id} code={code!r}")
+        logger.info("[LORA] TOPUP_REQUEST: station=%s code=%r", station_id, code)
 
         with get_connection() as conn:
             row = conn.execute(
@@ -663,7 +676,7 @@ class LoRaReceiver(threading.Thread):
             ).fetchone()
 
             if not row:
-                print(f"[LORA] TOPUP_REQUEST: invalid/expired token")
+                logger.warning("[LORA] TOPUP_REQUEST: invalid/expired token")
                 self._sender.send(format_message(TOPUP_FAIL, station_id, "invalid_session", _utc_iso()))
                 return
 
@@ -671,25 +684,25 @@ class LoRaReceiver(threading.Thread):
             result = topup_service.redeem_code(conn, user_id, code)
 
         if result["success"]:
-            print(f"[LORA] TOPUP_OK → {station_id}  amount={result['amount']}  new_balance={result['new_balance']}")
+            logger.info("[LORA] TOPUP_OK → %s  amount=%s  new_balance=%s", station_id, result['amount'], result['new_balance'])
             ok_msg = format_message(TOPUP_OK, station_id, f"{result['new_balance']:.2f}", _utc_iso())
             self._sender.send(ok_msg)
             time.sleep(2)
-            print(f"[LORA] TOPUP_OK → {station_id} (attempt 2)")
+            logger.info("[LORA] TOPUP_OK → %s (attempt 2)", station_id)
             self._sender.send(ok_msg)
         else:
             reason = result["error"] or "invalid_code"
-            print(f"[LORA] TOPUP_FAIL → {station_id}: {reason}")
+            logger.info("[LORA] TOPUP_FAIL → %s: %s", station_id, reason)
             fail_msg = format_message(TOPUP_FAIL, station_id, reason, _utc_iso())
             self._sender.send(fail_msg)
             time.sleep(2)
-            print(f"[LORA] TOPUP_FAIL → {station_id} (attempt 2)")
+            logger.info("[LORA] TOPUP_FAIL → %s (attempt 2)", station_id)
             self._sender.send(fail_msg)
 
     def _handle_gps(self, fields) -> None:
         # GPS|bike_id|unix_ts|lat|lon
         if len(fields) < 4:
-            print(f"[LORA] GPS: expected 4 fields, got {len(fields)}")
+            logger.warning("[LORA] GPS: expected 4 fields, got %d", len(fields))
             return
 
         bike_id = fields[0].strip()
@@ -698,15 +711,15 @@ class LoRaReceiver(threading.Thread):
             lat = float(fields[2])
             lon = float(fields[3])
         except (TypeError, ValueError):
-            print(f"[LORA] GPS: non-numeric payload {fields}")
+            logger.warning("[LORA] GPS: non-numeric payload %s", fields)
             return
 
         if unix_ts == 0 and lat == 0.0 and lon == 0.0:
-            print(f"[LORA] GPS: no-fix packet from {bike_id}, skipping")
+            logger.debug("[LORA] GPS: no-fix packet from %s, skipping", bike_id)
             return
 
         if lat < -90 or lat > 90 or lon < -180 or lon > 180:
-            print(f"[LORA] GPS: out-of-range coords lat={lat} lon={lon}")
+            logger.warning("[LORA] GPS: out-of-range coords lat=%s lon=%s", lat, lon)
             return
 
         gps_time = datetime.fromtimestamp(unix_ts, tz=timezone.utc).strftime(TIMESTAMP_FORMAT)
@@ -717,7 +730,7 @@ class LoRaReceiver(threading.Thread):
                 (bike_id,),
             ).fetchone()
             if not bike:
-                print(f"[LORA] GPS: unknown bike {bike_id!r}")
+                logger.warning("[LORA] GPS: unknown bike %r", bike_id)
                 return
 
             conn.execute(
@@ -763,7 +776,7 @@ class LoRaReceiver(threading.Thread):
                     )
                     conn.commit()
                     if not was_breached:
-                        print(f"[GEOFENCE] BREACH: bike={bike_id} dist={dist_m:.0f}m rental={active_rental_id}")
+                        logger.warning("[GEOFENCE] BREACH: bike=%s dist=%.0fm rental=%s", bike_id, dist_m, active_rental_id)
                         self._safe_log_event(
                             source=bike_id,
                             event_type="GEOFENCE_BREACH",
