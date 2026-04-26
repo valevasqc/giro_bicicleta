@@ -23,9 +23,11 @@ STATION_HTTP_HOST = os.getenv("STATION_HTTP_HOST", "127.0.0.1")
 STATION_HTTP_PORT = int(os.getenv("STATION_HTTP_PORT", "8001"))
 
 # --- GPIO ---------------------------------------------------------------
-# STUB_GPIO=true runs on a laptop without RPi.GPIO installed.
-STUB_GPIO = os.getenv("STUB_GPIO", "true").lower() not in ("0", "false", "no")
-LOCK_PIN = int(os.getenv("LOCK_PIN")) if os.getenv("LOCK_PIN") else None
+# STUB_LOCK=true  → solenoid calls print only (no RPi.GPIO for the lock).
+# STUB_SENSORS=true → dock/charge reads return stub defaults instead of GPIO.
+STUB_LOCK    = os.getenv("STUB_LOCK",    "false").lower() not in ("0", "false", "no")
+STUB_SENSORS = os.getenv("STUB_SENSORS", "true").lower()  not in ("0", "false", "no")
+LOCK_PIN = int(os.getenv("LOCK_PIN", "11"))
 DOCK_PIN = int(os.getenv("DOCK_PIN")) if os.getenv("DOCK_PIN") else None
 CHARGE_PIN = int(os.getenv("CHARGE_PIN")) if os.getenv("CHARGE_PIN") else None
 LOCK_UNLOCKS_WHEN_HIGH = os.getenv("LOCK_UNLOCKS_WHEN_HIGH", "true").lower() in ("1", "true", "yes")
@@ -51,7 +53,7 @@ STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_central.log"
 STUB_LORA_INBOUND = STUB_LORA_DIR / "to_station.log"
 
 # Real pyserial settings (ignored when STUB_LORA is true).
-LORA_PORT = "/dev/cu.usbmodem1101"
+LORA_PORT = "/dev/ttyACM0"
 LORA_SERIAL_PORT = LORA_PORT
 LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
 

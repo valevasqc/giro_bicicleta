@@ -7,6 +7,7 @@ export STATION_ID=S1
 export STATION_NAME="Estación 1"
 export STATION_HTTP_PORT=8001
 export STUB_LORA=true
+export STUB_LOCK=true
 export FLASK_APP=app.py
 export FLASK_ENV=development
 

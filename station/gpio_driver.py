@@ -18,7 +18,8 @@ class GPIODriver:
 
     def __init__(
         self,
-        stub: bool,
+        stub_lock: bool,
+        stub_sensors: bool,
         lock_pin,
         dock_pin,
         charge_pin,
@@ -26,7 +27,8 @@ class GPIODriver:
         stub_dock_occupied: bool = True,
         stub_charge_connected: bool = True,
     ):
-        self._stub = stub
+        self._stub_lock = stub_lock
+        self._stub_sensors = stub_sensors
         self._lock_pin = lock_pin
         self._dock_pin = dock_pin
         self._charge_pin = charge_pin
@@ -34,15 +36,15 @@ class GPIODriver:
         self._stub_dock_occupied = bool(stub_dock_occupied)
         self._stub_charge_connected = bool(stub_charge_connected)
 
-        if not stub:
+        if not stub_lock or not stub_sensors:
             import RPi.GPIO as GPIO  # noqa: PLC0415
             self._GPIO = GPIO
             GPIO.setmode(GPIO.BCM)
-            if lock_pin is not None:
+            if lock_pin is not None and not stub_lock:
                 GPIO.setup(lock_pin, GPIO.OUT, initial=self._locked_level())
-            if dock_pin is not None:
+            if dock_pin is not None and not stub_sensors:
                 GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            if charge_pin is not None:
+            if charge_pin is not None and not stub_sensors:
                 GPIO.setup(charge_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     def _unlock_level(self):
@@ -57,7 +59,7 @@ class GPIODriver:
         Returns True if the unlock command was issued successfully, False otherwise.
         In stub mode always returns True.
         """
-        if self._stub:
+        if self._stub_lock:
             print(f"[GPIO STUB] unlock_for_seconds({duration}s) on LOCK_PIN={self._lock_pin}")
             return True
 
@@ -82,7 +84,7 @@ class GPIODriver:
 
         In stub mode returns configured stub_dock_occupied default.
         """
-        if self._stub:
+        if self._stub_sensors:
             print(
                 f"[GPIO STUB] read_dock_occupied() on DOCK_PIN={self._dock_pin} -> {self._stub_dock_occupied}"
             )
@@ -102,7 +104,7 @@ class GPIODriver:
 
         In stub mode returns configured stub_charge_connected default.
         """
-        if self._stub:
+        if self._stub_sensors:
             print(
                 f"[GPIO STUB] read_charge_connected() on CHARGE_PIN={self._charge_pin} -> {self._stub_charge_connected}"
             )

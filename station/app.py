@@ -31,7 +31,8 @@ from station.config import (
     STATION_ID,
     STUB_CHARGE_CONNECTED,
     STUB_DOCK_OCCUPIED,
-    STUB_GPIO,
+    STUB_LOCK,
+    STUB_SENSORS,
     STUB_LORA,
     STUB_LORA_INBOUND,
     STUB_LORA_OUTBOUND,
@@ -52,7 +53,8 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = SECRET_KEY
 
     gpio = GPIODriver(
-        stub=STUB_GPIO,
+        stub_lock=STUB_LOCK,
+        stub_sensors=STUB_SENSORS,
         lock_pin=LOCK_PIN,
         dock_pin=DOCK_PIN,
         charge_pin=CHARGE_PIN,
@@ -94,7 +96,7 @@ def create_app() -> Flask:
     print(
         f"[STATION {STATION_ID}] Flask ready on "
         f"http://{STATION_HTTP_HOST}:{STATION_HTTP_PORT}  "
-        f"(LoRa stub={STUB_LORA}, GPIO stub={STUB_GPIO})"
+        f"(LoRa stub={STUB_LORA}, lock stub={STUB_LOCK}, sensors stub={STUB_SENSORS})"
     )
     return app
 
