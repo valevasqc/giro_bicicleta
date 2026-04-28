@@ -15,7 +15,8 @@
     var wrap  = document.createElement('div');
     wrap.id   = 'vk-wrap';
     var inner = document.createElement('div');
-    inner.id  = 'vk-inner';
+    inner.id        = 'vk-inner';
+    inner.className = 'vk-inner';
     wrap.appendChild(inner);
     canvas.appendChild(wrap);
 
@@ -24,8 +25,8 @@
     var layoutName  = 'default';
 
     /* ── Keyboard instance ──────────────────────────────────────────────── */
-    var Keyboard = window.SimpleKeyboard.default;
-    var kb = new Keyboard('#vk-inner', {
+    var Keyboard = window.SimpleKeyboard.default || window.SimpleKeyboard;
+    var kb = new Keyboard(inner, {
       preventMouseDownDefault: true,
       onKeyPress: handleKey,
       layout: {
@@ -84,6 +85,9 @@
       if (shiftBtn) shiftBtn.classList.toggle('vk-shift-active', name === 'shift');
     }
 
+    /* Prevent keyboard taps from stealing focus away from the active input */
+    wrap.addEventListener('mousedown', function (e) { e.preventDefault(); });
+
     /* ── Focus / blur ───────────────────────────────────────────────────── */
     canvas.addEventListener('focusin', function (e) {
       var t = e.target;
@@ -102,9 +106,17 @@
       }, 150);
     });
 
-    /* Tap/click outside input + keyboard → hide */
+    /* Tap/click outside input + keyboard → hide.
+       Uses a flag instead of wrap.contains(e.target) because layout-switching
+       keys (numbers/shift/abc) re-render the keyboard DOM during their own
+       pointerdown handler, detaching e.target before this check runs. */
+    var pointerDownInWrap = false;
+    wrap.addEventListener('pointerdown', function () { pointerDownInWrap = true; });
+
     canvas.addEventListener('pointerdown', function (e) {
-      if (!wrap.contains(e.target) && e.target.tagName !== 'INPUT') {
+      var wasInWrap = pointerDownInWrap;
+      pointerDownInWrap = false;
+      if (!wasInWrap && e.target.tagName !== 'INPUT') {
         hideKeyboard();
       }
     });

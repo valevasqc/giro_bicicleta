@@ -1,96 +1,77 @@
-# Giro Bicicleta (MVP)
+# Giro Bicicleta
 
-Minimal MVP for a rentable e-bike flow used in a university demo.
+Smart bike rental system for a university demo. One e-bike (B1), two station kiosks (S1, S2), one central backend. Stations communicate with central via LoRa radio.
 
-## What this project does
+## What's built
 
-This project simulates a smart bike rental system with one backend and web interfaces for:
+### Central backend (`central/`)
+Flask app that is the source of truth for all system state.
 
-- Station kiosk flow (touchscreen style)
-- Mobile web flow (basic)
-- Admin/debug dashboard
+- **Rental lifecycle** — request, approve/deny, start, complete
+- **Mobile web flow** — login, browse stations, request bike, mock payment, ride-active screen, return summary, ride history, balance top-up
+- **Admin dashboard** — live system state (bikes, stations, rentals), GPS track viewer, top-up code generator
+- **REST API** — auth, rental request/start/complete, heartbeat, station status, admin state
+- **LoRa integration** — background receiver thread + sender; stub mode routes messages through flat files for single-laptop dev
+- **Pricing** — hourly rate with minimum charge, all values from config
+- **CSV export** — rentals and GPS track exports
+- **SQLite persistence** — no ORM, raw sqlite3
 
-The core demo scenario is:
+### Station kiosk (`station/`)
+Separate Flask app that runs on each Raspberry Pi touchscreen.
 
-1. User logs in at Station 1
-2. User requests and unlocks bike B1
-3. User rides
-4. User returns the bike at Station 2
-5. Backend records rental state, payment state (mock), and ride summary
+- Login, rental request, dock state display
+- GPIO driver for dock/lock sensors (stubbed for dev)
+- Heartbeat sender, LoRa receiver/sender
 
-The backend is the source of truth for bikes, rentals, users, sessions, and events.
-
-## Project aim
-
-Deliver a reliable, end-to-end prototype that is easy to run locally and easy to demo.
-
-Current priorities:
-
-- Stable rental lifecycle
-- Clear station/mobile/admin flows
-- SQLite persistence with simple schema and seed data
-- Mock payment authorization and capture
+### Firmware
+- `tracker.ino` — GPS tracker sketch (Arduino/ESP)
+- `lora_bridge.ino` — LoRa relay sketch
 
 ## Tech stack
 
-- Python 3.11+
-- Flask
-- SQLite (sqlite3)
-- Jinja templates
-
-## Repository structure
-
-- central/: Flask app, API routes, templates, static files, database schema and seed
-- .github/copilot-instructions.md: project coding instructions
+Python 3.11, Flask, SQLite (sqlite3), werkzeug.security, pyserial
 
 ## Quick start
 
-### 1. Create and activate virtual environment
-
-macOS/Linux:
-
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install Flask Werkzeug pyserial
 
-### 2. Install dependencies
+# Init database
+python3 central/seed.py
 
-pip install Flask Werkzeug
+# Run central (stub LoRa on by default for dev)
+cd central && STUB_LORA=true flask run --port 8000
 
-### 3. Initialize seed data
+# Run station kiosk (separate terminal)
+cd station && STATION_ID=S1 STUB_GPIO=true STUB_LORA=true flask run --port 5001
+```
 
-From the repository root:
+Or use the provided scripts: `run_dev.sh`, `run_s1_dev.sh`, `run_s1.sh`, `run_s2.sh`.
 
-python central/seed.py
+## Key routes
 
-This creates and seeds central/giro_bicicleta.db with demo records.
+| App | Route | Purpose |
+|---|---|---|
+| Central | `/mobile` | Mobile web home |
+| Central | `/mobile/login` | Customer login |
+| Central | `/admin/login` | Admin dashboard login |
+| Central | `/admin/dashboard` | Live system state |
+| Central | `/health` | Health check |
+| Station | `/` | Kiosk home |
 
-### 4. Run the app
+## Demo credentials (from seed)
 
-python central/app.py
+| Role | Username | Password |
+|---|---|---|
+| Customer | valeria | demo123 |
+| Admin | admin | admin123 |
+| Station S1 | station_s1 | station123 |
+| Station S2 | station_s2 | station123 |
 
-Server starts on:
+## Config
 
-http://127.0.0.1:8000
+All environment-specific values (serial port, baud rate, GPIO pins, stub flags) live in `central/config.py` and `station/config.py`. Never hardcoded.
 
-## Main routes
-
-- Kiosk home: / 
-- Station login flow: /station/login
-- Mobile home: /mobile
-- Admin login: /admin/login
-- Health check: /health
-
-## Demo credentials
-
-From the seed script:
-
-- Customer: valeria / demo123
-- Admin: admin / admin123
-- Station service S1: station_s1 / station123
-- Station service S2: station_s2 / station123
-
-## Notes
-
-- Payments are simulated (authorize before ride, capture on return).
-- Default station context is S1 (configurable via environment variable STATION_ID).
-- Tracker GPS endpoint exists but is still a stub-level integration for MVP.
+`STUB_LORA=true` routes LoRa I/O through two append-only files (`to_central.log` / `to_station.log`) so the full flow can be tested on one laptop without hardware.
