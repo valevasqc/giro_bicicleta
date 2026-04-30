@@ -2030,4 +2030,4 @@ def mobile_rides_page():
 if __name__ == "__main__":
     # init_db + LoRa startup already happened at import time above so the
     # receiver thread is alive and listening by the time Flask binds the port.
-    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)

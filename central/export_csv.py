@@ -86,12 +86,42 @@ def export_gps_track(out_path: Path) -> int:
     return len(rows)
 
 
+def export_events(out_path: Path) -> int:
+    """Write events.csv (all LoRa packet log entries). Returns number of rows written."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT event_id, timestamp, source, event_type, payload
+            FROM events
+            ORDER BY timestamp
+            """
+        ).fetchall()
+
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["event_id", "timestamp", "source", "event_type", "payload"])
+        for row in rows:
+            writer.writerow([
+                row["event_id"],
+                row["timestamp"],
+                row["source"],
+                row["event_type"],
+                row["payload"] or "",
+            ])
+
+    return len(rows)
+
+
 if __name__ == "__main__":
     rentals_path = OUT_DIR / "rentals.csv"
     gps_path = OUT_DIR / "gps_track.csv"
+    events_path = OUT_DIR / "events.csv"
 
     n_rentals = export_rentals(rentals_path)
     print(f"rentals.csv   → {rentals_path}  ({n_rentals} rows)")
 
     n_pings = export_gps_track(gps_path)
     print(f"gps_track.csv → {gps_path}  ({n_pings} rows)")
+
+    n_events = export_events(events_path)
+    print(f"events.csv    → {events_path}  ({n_events} rows)")

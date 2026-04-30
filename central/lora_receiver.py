@@ -196,7 +196,8 @@ class LoRaReceiver(threading.Thread):
                 raw = ser.readline()
             except Exception as exc:
                 logger.warning("[LORA RX] serial read error: %s", exc)
-                time.sleep(self._poll_interval)
+                self._sender.reset_connection()
+                time.sleep(2)
                 continue
 
             if not raw:

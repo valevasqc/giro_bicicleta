@@ -106,6 +106,17 @@ class LoRaSender:
                     pass
                 self._serial = None
 
+    def reset_connection(self) -> None:
+        """Close current serial connection so _connect_loop reopens it."""
+        with self._lock:
+            if self._serial is not None:
+                try:
+                    self._serial.close()
+                except Exception:
+                    pass
+                self._serial = None
+        logger.info("[LORA] connection reset — will reconnect")
+
     def close(self) -> None:
         if self._serial is not None:
             try:
