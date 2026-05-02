@@ -55,3 +55,6 @@ station/logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Design reference only
+design/

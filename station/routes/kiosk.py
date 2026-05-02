@@ -393,15 +393,22 @@ def station_return_confirm():
 
     if request.method == "POST":
         gpio = current_app.extensions.get("gpio")
-        if gpio is not None and not gpio.read_dock_occupied():
-            logger.warning("[KIOSK] return_confirm blocked — dock sensor not triggered")
-            return render_template(
-                "kiosk/return_confirm.html",
-                station_name=STATION_NAME,
-                user_name=customer_auth.get("name") or "Usuario",
-                active_bike=STATION_BIKE_ID,
-                error_message="La bicicleta no está en el andén. Encájala y vuelve a confirmar.",
-            )
+        if gpio is not None:
+            dock_ok   = gpio.read_dock_occupied()
+            charge_ok = gpio.read_charge_connected()
+            if not dock_ok or not charge_ok:
+                if not dock_ok:
+                    err = "La bicicleta no está en el andén. Encájala y vuelve a confirmar."
+                else:
+                    err = "El cargador no está conectado. Conecta el cargador y vuelve a confirmar."
+                logger.warning("[KIOSK] return_confirm blocked — dock=%s charge=%s", dock_ok, charge_ok)
+                return render_template(
+                    "kiosk/return_confirm.html",
+                    station_name=STATION_NAME,
+                    user_name=customer_auth.get("name") or "Usuario",
+                    active_bike=STATION_BIKE_ID,
+                    error_message=err,
+                )
 
         bike_id = STATION_BIKE_ID
         state.take_inbound(RETURN_COMPLETE)
@@ -446,14 +453,21 @@ def station_complete_return():
         return redirect(url_for("kiosk.station_home"))
 
     gpio = current_app.extensions.get("gpio")
-    if gpio is not None and not gpio.read_dock_occupied():
-        logger.warning("[KIOSK] complete_return blocked — dock sensor not triggered")
-        return render_template(
-            "kiosk/complete_error.html",
-            station_id=STATION_ID,
-            station_name=STATION_NAME,
-            error_message="La bicicleta no está en el andén. Encájala correctamente y vuelve a intentarlo.",
-        )
+    if gpio is not None:
+        dock_ok   = gpio.read_dock_occupied()
+        charge_ok = gpio.read_charge_connected()
+        if not dock_ok or not charge_ok:
+            if not dock_ok:
+                err = "La bicicleta no está en el andén. Encájala correctamente y vuelve a intentarlo."
+            else:
+                err = "El cargador no está conectado. Conecta el cargador y vuelve a intentarlo."
+            logger.warning("[KIOSK] complete_return blocked — dock=%s charge=%s", dock_ok, charge_ok)
+            return render_template(
+                "kiosk/complete_error.html",
+                station_id=STATION_ID,
+                station_name=STATION_NAME,
+                error_message=err,
+            )
 
     state.take_inbound(RETURN_COMPLETE)
     state.set_pending("return", {"bike_id": bike_id})
