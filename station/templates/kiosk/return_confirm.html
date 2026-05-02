@@ -65,6 +65,12 @@
       Asegúrate de haber encajado la bicicleta en el andén antes de confirmar.
     </div>
 
+    {% if error_message %}
+    <div class="c-info-card" style="background:#fde8e8;color:#7a1f1f;border-color:#f5c0c0;">
+      {{ error_message }}
+    </div>
+    {% endif %}
+
     <form method="post" id="return-form">
       <button type="submit" id="return-btn" class="btn-primary grn" style="width:100%;">
         Confirmar devolución
