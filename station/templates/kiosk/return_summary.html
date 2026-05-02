@@ -1,5 +1,5 @@
 {% extends "screens/base.html" %}
-{% block title %}Resumen — Giro Bicicleta{% endblock %}
+{% block title %}Resumen — Giro{% endblock %}
 
 {% block content %}
 <div class="summary-screen">
@@ -69,14 +69,37 @@
         <span>{{ summary.bike_id }} devuelta correctamente</span>
       </div>
 
-      <a class="summary-finish-btn" href="{{ url_for('kiosk.station_home') }}">
-        Finalizar
-        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-          <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </a>
+      <div style="margin-top:10px;font-size:11px;color:#9e9186;text-align:center;">
+        Cerrando sesión en <strong id="cd-num" style="color:#6b9e74;">8</strong> segundos
+      </div>
+
+      <form method="post" action="{{ url_for('kiosk.station_logout') }}" id="logout-form" style="margin:0;padding:0;width:100%;">
+        <button type="submit" class="summary-finish-btn">
+          Finalizar
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
     </div>
 
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  var n   = 8;
+  var el  = document.getElementById('cd-num');
+  var frm = document.getElementById('logout-form');
+  function tick(){
+    n--;
+    el.textContent = n;
+    if(n <= 0){ frm.submit(); return; }
+    setTimeout(tick, 1000);
+  }
+  setTimeout(tick, 1000);
+})();
+</script>
 {% endblock %}

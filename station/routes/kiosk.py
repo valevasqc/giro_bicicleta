@@ -316,6 +316,7 @@ def station_payment():
             customer_auth.get("user_id") or "",
             _utc_iso(),
         ))
+        state.set_dock_occupied(False)
 
         session["active_rental"] = {
             "bike_id": bike_id,
@@ -457,6 +458,7 @@ def station_return_result():
         logger.info("[KIOSK] RETURN_COMPLETE received — rendering summary")
         state.take_inbound(RETURN_COMPLETE)
         state.clear_pending()
+        state.set_dock_occupied(True)
         # RETURN_COMPLETE|station_id|bike_id|name|duration_minutes|cost|balance_remaining|ts
         f = reply["fields"]
         summary = {
@@ -636,7 +638,9 @@ def station_api_status(station_id):
     gpio = current_app.extensions.get("gpio")
     dock_occupied = bool(gpio.read_dock_occupied()) if gpio else False
     charge_connected = bool(gpio.read_charge_connected()) if gpio else False
-    available = dock_occupied and charge_connected
+
+    sw_dock = state.get_dock_occupied()
+    available = sw_dock if sw_dock is not None else (dock_occupied and charge_connected)
 
     sender = current_app.extensions.get("lora_sender")
     lora_ok = sender.connected if sender else False

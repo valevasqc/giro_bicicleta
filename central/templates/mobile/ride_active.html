@@ -58,7 +58,7 @@
             </div>
             <div class="g-timer-block accent">
                 <p class="g-timer-sub">Saldo Actual</p>
-                <p class="g-timer-val primary">T{{ "%.2f"|format(balance) }}</p>
+                <p class="g-timer-val primary">Q{{ "%.2f"|format(balance) }}</p>
             </div>
         </div>
 
@@ -74,9 +74,9 @@
                          color:#fff; box-shadow:var(--ambient); pointer-events:none;">
                 <div style="display:flex; align-items:center; gap:.5rem;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-                    <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.55rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;">Dentro de Área Operativa</span>
+                    <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;">Dentro de Área Operativa</span>
                 </div>
-                <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.48rem; opacity:.65;">GPS activo</span>
+                <span id="gpsStatus" style="font-family:'Public Sans',system-ui,sans-serif; font-size:.55rem; opacity:.65;">Buscando GPS…</span>
             </div>
         </div>
 
@@ -177,6 +177,53 @@
              .addTo(map)
              .bindPopup('<div class="g-popup"><p class="g-popup-name">' + sid + '</p></div>');
         });
+
+        /* ── phone GPS blue dot ── */
+        var userDot   = null;
+        var userRing  = null;
+        var gpsStatus = document.getElementById('gpsStatus');
+        var firstFix  = true;
+
+        function onPosition(pos) {
+            var lat = pos.coords.latitude;
+            var lng = pos.coords.longitude;
+
+            if (!userDot) {
+                userRing = L.circleMarker([lat, lng], {
+                    radius: 14, fillColor: '#2563EB', fillOpacity: .15,
+                    color: '#2563EB', weight: 1,
+                    interactive: false,
+                }).addTo(map);
+                userDot = L.circleMarker([lat, lng], {
+                    radius: 7, fillColor: '#2563EB', fillOpacity: 1,
+                    color: '#fff', weight: 2.5,
+                    interactive: false,
+                }).addTo(map);
+            } else {
+                userDot.setLatLng([lat, lng]);
+                userRing.setLatLng([lat, lng]);
+            }
+
+            if (firstFix) {
+                map.setView([lat, lng], 17);
+                firstFix = false;
+            }
+            if (gpsStatus) gpsStatus.textContent = 'GPS activo';
+        }
+
+        function onGpsError() {
+            if (gpsStatus) gpsStatus.textContent = 'GPS no disponible';
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(onPosition, onGpsError, {
+                enableHighAccuracy: true,
+                maximumAge: 4000,
+                timeout: 12000,
+            });
+        } else {
+            if (gpsStatus) gpsStatus.textContent = 'GPS no soportado';
+        }
 
     })();
     </script>

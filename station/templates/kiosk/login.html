@@ -1,5 +1,5 @@
 {% extends "screens/base.html" %}
-{% block title %}Login — Giro Bicicleta{% endblock %}
+{% block title %}Login — Giro{% endblock %}
 
 {% block content %}
 <div class="kv2-split">
@@ -8,7 +8,7 @@
   <div class="kv2-left">
     <div class="lp-logo">
       <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
-      <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+      <div><div class="lp-name">GIRO</div><div class="lp-sub">Bicicleta</div></div>
     </div>
     <div class="lp-station">
       <div class="lp-label">Estación</div>
@@ -46,12 +46,12 @@
         <div class="c-notice">{{ notice_message }}</div>
       {% endif %}
 
-      <div>
+      <div class="login-field">
         <label class="login-label" for="username">Usuario</label>
         <input class="login-input" id="username" name="username" type="text"
           autocomplete="username" value="{{ username_value }}" placeholder="nombre de usuario" required/>
       </div>
-      <div>
+      <div class="login-field">
         <label class="login-label" for="password">Contraseña</label>
         <input class="login-input" id="password" name="password" type="password"
           autocomplete="current-password" placeholder="••••••••" required/>

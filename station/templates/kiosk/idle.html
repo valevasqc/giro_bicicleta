@@ -1,5 +1,5 @@
 {% extends "screens/base.html" %}
-{% block title %}Giro Bicicleta — Estación {{ station_id }}{% endblock %}
+{% block title %}Giro — Estación {{ station_id }}{% endblock %}
 {% block body_attrs %} data-station-id="{{ station_id }}"{% endblock %}
 
 {% block content %}
@@ -15,8 +15,8 @@
     <div class="idle-brand">
       <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
       <div>
-        <div class="idle-bname">Giro Bicicleta</div>
-        <div class="idle-bsub">Sistema de bicicletas compartidas</div>
+        <div class="idle-bname">GIRO</div>
+        <div class="idle-bsub">Siempre girando.</div>
       </div>
     </div>
     <div class="idle-clock-wrap">

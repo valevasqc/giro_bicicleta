@@ -26,7 +26,7 @@
             <div class="g-wallet-card g-mb">
                 <p class="g-wallet-lbl">Saldo GIRO</p>
                 <p class="g-wallet-amount {% if current_balance < 5 %}g-hl{% endif %}" style="{% if current_balance < 5 %}color:var(--error);{% endif %}">
-                    T{{ "%.2f"|format(current_balance) }}
+                    Q{{ "%.2f"|format(current_balance) }}
                 </p>
                 {% if current_balance < 0 %}
                 <p style="font-family:'Public Sans',sans-serif;font-size:.68rem;font-weight:600;color:var(--error);margin:.5rem 0 0;">Saldo negativo — recarga antes de tu próxima renta.</p>

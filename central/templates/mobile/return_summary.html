@@ -39,7 +39,7 @@
             <p class="g-summary-cost-lbl">Costo del Viaje</p>
             <p class="g-summary-cost-val">
                 {% if summary.simulated_cost is not none %}
-                    T{{ "%.2f"|format(summary.simulated_cost) }}
+                    Q{{ "%.2f"|format(summary.simulated_cost) }}
                 {% else %}—{% endif %}
             </p>
 
@@ -48,7 +48,7 @@
                     <p class="g-summary-sub-lbl">Saldo Anterior</p>
                     <p class="g-summary-sub-val">
                         {% if summary.simulated_cost is not none and summary.balance_remaining is not none %}
-                            T{{ "%.2f"|format(summary.balance_remaining + summary.simulated_cost) }}
+                            Q{{ "%.2f"|format(summary.balance_remaining + summary.simulated_cost) }}
                         {% else %}—{% endif %}
                     </p>
                 </div>
@@ -56,7 +56,7 @@
                     <p class="g-summary-sub-lbl" style="color:var(--primary);">Saldo Restante</p>
                     <p class="g-summary-sub-val primary">
                         {% if summary.balance_remaining is not none %}
-                            T{{ "%.2f"|format(summary.balance_remaining) }}
+                            Q{{ "%.2f"|format(summary.balance_remaining) }}
                         {% else %}—{% endif %}
                     </p>
                 </div>

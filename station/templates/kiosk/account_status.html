@@ -1,5 +1,5 @@
 {% extends "screens/base.html" %}
-{% block title %}Estado de cuenta — Giro Bicicleta{% endblock %}
+{% block title %}Estado de cuenta — Giro{% endblock %}
 
 {% block content %}
 <div class="kv2-split">
@@ -8,7 +8,7 @@
   <div class="kv2-left">
     <div class="lp-logo">
       <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
-      <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+      <div><div class="lp-name">GIRO</div><div class="lp-sub">Bicicleta</div></div>
     </div>
     <div class="lp-station">
       <div class="lp-label">Estación</div>
@@ -68,7 +68,7 @@
 
     <!-- Balance pill -->
     <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#f5f1ec;border-radius:8px;font-size:13px;">
-      <span style="color:#5a514a;font-weight:600;">Tokens:</span>
+      <span style="color:#5a514a;font-weight:600;">Saldo:</span>
       {% if balance < 0 %}
         <span style="font-weight:700;color:#c0392b;">Q{{ "%.2f"|format(balance) }}</span>
       {% else %}
@@ -116,7 +116,7 @@
         </div>
       </div>
       <a class="btn-primary red" href="{{ url_for('kiosk.station_topup') }}">
-        Cargar tokens
+        Recargar saldo
         <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
           <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -147,8 +147,8 @@
           <path d="M4 10h12M11 5l5 5-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a href="{{ url_for('kiosk.station_topup') }}" class="btn-secondary" style="text-align:center;display:block;">
-        Cargar tokens
+      <a href="{{ url_for('kiosk.station_topup') }}" class="btn-secondary">
+        Recargar saldo
       </a>
     {% endif %}
 

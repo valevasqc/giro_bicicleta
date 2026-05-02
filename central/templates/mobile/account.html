@@ -74,7 +74,7 @@
                 <div>
                     <p class="g-balance-row-lbl">Saldo GIRO</p>
                     <p class="g-balance-row-amt" style="{% if balance < 5 %}color:var(--error);{% endif %}">
-                        T{{ "%.2f"|format(balance) }}
+                        Q{{ "%.2f"|format(balance) }}
                     </p>
                 </div>
                 <a href="{{ url_for('mobile_topup_page') }}" class="g-topup-btn" title="Recargar">

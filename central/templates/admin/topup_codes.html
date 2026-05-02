@@ -4,65 +4,77 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Generar Códigos de Recarga — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800;900&family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin.css') }}" />
   <style>
-    body { font-family: sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; }
-    h1 { font-size: 22px; margin-bottom: 4px; }
-    .sub { color: #666; margin-bottom: 24px; font-size: 14px; }
-    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-    input[type=number] { width: 120px; padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
-    button { padding: 9px 22px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-    .error { background: #fdecea; border: 1px solid #e74c3c; border-radius: 6px; padding: 10px 14px; color: #922b21; font-size: 13px; margin-bottom: 16px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; font-size: 14px; }
-    th { background: #f5f5f5; font-weight: 700; }
-    code { font-family: monospace; font-size: 15px; letter-spacing: 2px; }
-    .back { display: inline-block; margin-bottom: 20px; font-size: 13px; color: #2c3e50; }
-    .form-row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+    code { font-family: 'Courier New', monospace; font-size: 15px; letter-spacing: 2px; }
+    .form-row { display: flex; gap: 2rem; align-items: flex-end; flex-wrap: wrap; }
+    .form-row .form-field { min-width: 140px; }
+    input[type="number"] { width: 140px; }
   </style>
 </head>
 <body>
-  <a class="back" href="/admin/dashboard">← Volver al dashboard</a>
-  <h1>Generar Códigos de Recarga</h1>
-  <p class="sub">Hola, {{ admin_name }}. Genera lotes de códigos para imprimir en tarjetas físicas.</p>
-
-  {% if error_message %}
-    <div class="error">{{ error_message }}</div>
-  {% endif %}
-
-  <form method="post" action="/admin/topup-codes/generate">
-    <div class="form-row">
+  <main class="admin-shell">
+    <header class="admin-topbar">
       <div>
-        <label for="count">Cantidad de códigos</label>
-        <input type="number" id="count" name="count" min="1" max="200" value="10" required/>
+        <div class="brand-row">
+          <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
+          <p class="eyebrow">Giro Bicicleta</p>
+        </div>
+        <h1>Códigos de Recarga</h1>
+        <p class="muted">Hola, {{ admin_name }}. Genera lotes de códigos para imprimir en tarjetas físicas.</p>
       </div>
-      <div>
-        <label for="amount">Monto por código (Q)</label>
-        <input type="number" id="amount" name="amount" min="1" step="0.01" value="50" required/>
-      </div>
-      <div>
-        <button type="submit">Generar</button>
-      </div>
-    </div>
-  </form>
+      <a href="/admin/dashboard" class="btn btn-secondary">← Dashboard</a>
+    </header>
 
-  {% if generated %}
-    <table>
-      <thead>
-        <tr><th>#</th><th>Código</th><th>Monto</th></tr>
-      </thead>
-      <tbody>
-        {% for code in generated %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td><code>{{ code }}</code></td>
-            <td>Q — (ver monto en formulario)</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <p style="font-size:12px;color:#666;margin-top:8px;">
-      {{ generated | length }} código(s) generado(s). Copia esta tabla para imprimir las tarjetas.
-    </p>
-  {% endif %}
+    {% if error_message %}
+      <div class="error-box">{{ error_message }}</div>
+    {% endif %}
+
+    <section class="panel">
+      <h2>Generar códigos</h2>
+      <form method="post" action="/admin/topup-codes/generate">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="count">Cantidad de códigos</label>
+            <input type="number" id="count" name="count" min="1" max="200" value="10" required/>
+          </div>
+          <div class="form-field">
+            <label for="amount">Monto por código (Q)</label>
+            <input type="number" id="amount" name="amount" min="1" step="0.01" value="50" required/>
+          </div>
+          <div style="padding-bottom:2px;">
+            <button type="submit" class="btn btn-primary">Generar</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    {% if generated %}
+      <section class="panel">
+        <h2>{{ generated | length }} código(s) generado(s)</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Código</th><th>Monto</th></tr>
+            </thead>
+            <tbody>
+              {% for code in generated %}
+                <tr>
+                  <td>{{ loop.index }}</td>
+                  <td><code>{{ code }}</code></td>
+                  <td>Q — (ver monto en formulario)</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin-top:.75rem;font-size:.8rem;">Copia esta tabla para imprimir las tarjetas.</p>
+      </section>
+    {% endif %}
+  </main>
 </body>
 </html>

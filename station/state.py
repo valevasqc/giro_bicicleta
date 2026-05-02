@@ -30,6 +30,9 @@ INBOX = {}
 # {"kind": "login" | "rental" | "return", "started_at": float, "context": {...}}
 PENDING = {}
 
+# {"occupied": bool} when software knows the bike's dock state; {} means unknown → fall back to GPIO.
+_DOCK_STATE: dict = {}
+
 
 def record_inbound(msg_type: str, fields) -> None:
     """Called by the LoRa receiver thread when a message arrives from central."""
@@ -77,8 +80,25 @@ def clear_pending() -> None:
         PENDING.clear()
 
 
+def set_dock_occupied(val: bool | None) -> None:
+    """Update the software dock state. None clears the override, restoring GPIO fallback."""
+    with _lock:
+        if val is None:
+            _DOCK_STATE.clear()
+        else:
+            _DOCK_STATE["occupied"] = bool(val)
+
+
+def get_dock_occupied() -> bool | None:
+    """Return the software dock state, or None if unknown (caller should use GPIO)."""
+    with _lock:
+        return _DOCK_STATE.get("occupied", None)
+
+
 def reset_all() -> None:
     """Useful for tests and for /station/reset diagnostic endpoints."""
     with _lock:
         INBOX.clear()
         PENDING.clear()
+        # Intentionally does NOT clear _DOCK_STATE: dock presence persists
+        # across logout so the idle screen reflects the correct bike count.

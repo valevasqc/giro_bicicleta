@@ -1,5 +1,5 @@
 {% extends "screens/base.html" %}
-{% block title %}Cargar Tokens — Giro Bicicleta{% endblock %}
+{% block title %}Recargar Saldo — Giro{% endblock %}
 
 {% block content %}
 <div class="kv2-split">
@@ -8,7 +8,7 @@
   <div class="kv2-left">
     <div class="lp-logo">
       <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro"/>
-      <div><div class="lp-name">Giro</div><div class="lp-sub">Bicicleta</div></div>
+      <div><div class="lp-name">GIRO</div><div class="lp-sub">Bicicleta</div></div>
     </div>
     <div class="lp-station">
       <div class="lp-label">Estación</div>
@@ -20,7 +20,7 @@
     </div>
     <div class="lp-spacer"></div>
     <div class="lp-user" style="margin-top:0;">
-      <div class="lp-label">Tokens actuales</div>
+      <div class="lp-label">Saldo actual</div>
       <div class="lp-uname" style="font-size:20px;">
         {% if balance < 0 %}
           <span style="color:#c0392b;">Q{{ "%.2f"|format(balance) }}</span>
@@ -34,7 +34,7 @@
   <!-- Right pane -->
   <div class="kv2-right" style="gap:14px;">
     <div>
-      <div class="c-eyebrow grn">Recarga de tokens</div>
+      <div class="c-eyebrow grn">Recarga de saldo</div>
       <div class="c-title">Ingresa tu código</div>
     </div>
 
@@ -75,7 +75,7 @@
       </form>
     {% endif %}
 
-    <a href="{{ url_for('kiosk.station_account_status') }}" class="btn-secondary" style="text-align:center;display:block;">
+    <a href="{{ url_for('kiosk.station_account_status') }}" class="btn-secondary">
       Cancelar — volver
     </a>
   </div>
