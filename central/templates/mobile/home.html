@@ -3,24 +3,27 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Mobile - Giro Bicicleta</title>
+    <title>GIRO – Movilidad Urbana</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
 <body>
-    <main class="mobile-shell">
-        <section class="mobile-card hero">
-            <div class="brand-row">
-                <img class="brand-logo" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Giro Bicicleta" />
-                <p class="eyebrow">Giro Bicicleta</p>
-            </div>
-            <h1>Renta desde tu celular</h1>
-            <p class="muted">Inicia sesión, elige una estación y desbloquea tu bici.</p>
-            <a class="btn btn-primary" href="{{ url_for('mobile_login_page') }}">Entrar</a>
-        </section>
+<div class="g-landing">
+    <div class="g-landing-media">
+        <video autoplay muted loop playsinline>
+            <source src="https://assets.mixkit.co/videos/preview/mixkit-man-riding-a-bicycle-in-the-city-at-night-41018-large.mp4" type="video/mp4" />
+        </video>
+    </div>
+
+    <header class="g-landing-logo">GIRO</header>
+
+    <main class="g-landing-cta">
+        <a class="g-landing-btn" href="{{ url_for('mobile_login_page') }}">
+            Iniciar Sesión
+        </a>
     </main>
+</div>
 </body>
 </html>

@@ -28,12 +28,12 @@ STATION_HTTP_PORT = int(os.getenv("STATION_HTTP_PORT", "8001"))
 STUB_LOCK    = os.getenv("STUB_LOCK",    "false").lower() not in ("0", "false", "no")
 STUB_SENSORS = os.getenv("STUB_SENSORS", "true").lower()  not in ("0", "false", "no")
 LOCK_PIN = int(os.getenv("LOCK_PIN", "17"))
-DOCK_PIN = int(os.getenv("DOCK_PIN")) if os.getenv("DOCK_PIN") else None
-CHARGE_PIN = int(os.getenv("CHARGE_PIN")) if os.getenv("CHARGE_PIN") else None
+DOCK_PIN = int(os.getenv("DOCK_PIN", "27"))
+CHARGE_PIN = int(os.getenv("CHARGE_PIN", "22"))
 LOCK_UNLOCKS_WHEN_HIGH = os.getenv("LOCK_UNLOCKS_WHEN_HIGH", "true").lower() in ("1", "true", "yes")
 UNLOCK_DURATION_SECONDS = float(os.getenv("UNLOCK_DURATION_SECONDS", "5"))
 
-# Reed-switch defaults used only by the GPIO stub.
+# Stub defaults used only by the GPIO stub (no hardware).
 STUB_DOCK_OCCUPIED = os.getenv("STUB_DOCK_OCCUPIED", "true").lower() in ("1", "true", "yes")
 STUB_CHARGE_CONNECTED = os.getenv("STUB_CHARGE_CONNECTED", "true").lower() in ("1", "true", "yes")
 

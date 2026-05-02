@@ -3,44 +3,182 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Viaje activo - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Viaje en Curso – GIRO</title>
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #ride-map { width: 100%; height: 260px; border-radius: 14px; overflow: hidden;
+                    box-shadow: var(--ambient); outline: 1px solid var(--outline-10); }
+        .leaflet-popup-content-wrapper {
+            background: rgba(248,246,236,.96); border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12);
+            border: 1px solid rgba(74,69,65,.08); padding: 0;
+        }
+        .leaflet-popup-content { margin: 0; }
+        .leaflet-popup-tip { background: rgba(248,246,236,.96); }
+        .g-popup { padding: .6rem .85rem;
+                   font-family: 'Public Sans', system-ui, sans-serif; }
+        .g-popup-name { font-family: 'Sora', sans-serif;
+                        font-size: .85rem; font-weight: 800; color: #1A1714; margin: 0; }
+    </style>
 </head>
-<body class="has-chrome">
+<body class="g-screen">
+    <header class="g-hdr">
+        <span class="g-hdr-brand">GIRO</span>
+        <div style="display:flex; align-items:center; gap:.75rem;">
+            <span style="background:var(--primary-dim); color:var(--primary);
+                          border:1px solid rgba(162,37,34,.2); border-radius:999px;
+                          padding:.2rem .75rem;
+                          font-family:'Public Sans',system-ui,sans-serif;
+                          font-size:.52rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase;">
+                MÍNIMO: T50
+            </span>
+        </div>
+    </header>
+
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <div style="display:grid;gap:0.85rem;">
+    <main class="g-content">
 
-            <div>
-                <p class="eyebrow" style="margin-bottom:0.2rem;">Viaje activo</p>
-                <h1 style="margin:0;">¡Buen viaje!</h1>
+        {# ── section header ──────────────────────────────────── #}
+        <section class="g-mb" style="margin-top:.5rem;">
+            <div class="g-eyebrow g-mb-sm">
+                <span class="g-eyebrow-dot active"></span>
+                <span class="g-eyebrow-text" style="color:var(--secondary);">Viaje en Curso</span>
             </div>
+            <h1 class="g-big-title">MI<br><span class="accent">VIAJE</span></h1>
+        </section>
 
-            <section class="mobile-card accent-green">
-                <div class="profile-row" style="padding:0.35rem 0;">
-                    <span class="label">Bicicleta</span>
-                    <span class="value">{{ rental.bike_id }}</span>
-                </div>
-                <div class="profile-row" style="padding:0.35rem 0;">
-                    <span class="label">Inicio</span>
-                    <span class="value">{{ rental.start_station_id }}</span>
-                </div>
-                <div class="profile-row" style="padding:0.35rem 0;border-bottom:none;">
-                    <span class="label">Hora de salida</span>
-                    <span class="value">{{ rental.start_time }}</span>
-                </div>
-            </section>
-
-            <p class="hint">Devuelve la bici en cualquier estación para finalizar el viaje y registrar el cobro.</p>
-
-            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Ver estaciones</a>
-
+        {# ── timer + balance ─────────────────────────────────── #}
+        <div class="g-timer-grid">
+            <div class="g-timer-block">
+                <p class="g-timer-sub">Tiempo</p>
+                <p class="g-timer-val" id="timerDisplay">00:00</p>
+            </div>
+            <div class="g-timer-block accent">
+                <p class="g-timer-sub">Saldo Actual</p>
+                <p class="g-timer-val primary">T{{ "%.2f"|format(balance) }}</p>
+            </div>
         </div>
+
+        {# ── live map ─────────────────────────────────────────── #}
+        <div style="margin-bottom:1.5rem; position:relative;">
+            <div id="ride-map"></div>
+
+            {# floating status bar #}
+            <div style="position:absolute; bottom:.75rem; left:.75rem; right:.75rem; z-index:500;
+                         background:rgba(250,121,33,.92); backdrop-filter:blur(12px);
+                         padding:.6rem 1rem; border-radius:10px;
+                         display:flex; align-items:center; justify-content:space-between;
+                         color:#fff; box-shadow:var(--ambient); pointer-events:none;">
+                <div style="display:flex; align-items:center; gap:.5rem;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                    <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.55rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;">Dentro de Área Operativa</span>
+                </div>
+                <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.48rem; opacity:.65;">GPS activo</span>
+            </div>
+        </div>
+
+        {# ── bike info ────────────────────────────────────────── #}
+        <div style="background:var(--sc-low); padding:1.25rem 1.5rem; border-radius:12px;
+                     margin-bottom:2rem; box-shadow:var(--ambient); outline:1px solid var(--outline-10);">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <div style="padding:.5rem; background:rgba(74,69,65,.05); border-radius:8px; color:var(--on-variant);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>
+                    </div>
+                    <div>
+                        <p style="margin:0; font-family:'Public Sans',system-ui,sans-serif; font-size:.55rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--on-variant-40);">Vehículo</p>
+                        <p style="margin:.1rem 0 0; font-weight:800; font-size:.9rem; letter-spacing:.05em;">{{ rental.bike_id }}</p>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:.4rem; color:var(--tertiary);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+                    <span style="font-weight:800; font-size:.88rem;">GPS</span>
+                </div>
+            </div>
+        </div>
+
+        {# ── return options ───────────────────────────────────── #}
+        <p class="g-section-lbl g-mb-sm">Finalizar Viaje</p>
+        <div class="g-stack">
+            <form method="post" action="{{ url_for('mobile_complete_return_page') }}" class="ret-form">
+                <input type="hidden" name="station_id" value="{{ rental.start_station_id }}" />
+                <button type="submit" class="g-btn g-btn-primary" id="endBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Terminar y Pagar
+                </button>
+            </form>
+
+            <a href="{{ url_for('mobile_stations_page') }}" class="g-btn g-btn-ghost">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                Ver Estaciones
+            </a>
+        </div>
+
     </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function () {
+
+        /* ── live timer ── */
+        var startISO  = "{{ rental.start_time }}";
+        var startTime = new Date(startISO.replace(' ', 'T').replace('Z', '') + 'Z');
+        var display   = document.getElementById('timerDisplay');
+
+        function tick() {
+            var elapsed = Math.max(0, Math.floor((new Date() - startTime) / 1000));
+            var m = Math.floor(elapsed / 60);
+            var s = elapsed % 60;
+            if (display) display.textContent =
+                String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+        tick();
+        setInterval(tick, 1000);
+
+        document.querySelectorAll('.ret-form').forEach(function (f) {
+            f.addEventListener('submit', function () {
+                var btn = f.querySelector('button');
+                if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
+            });
+        });
+
+        /* ── Leaflet map ── */
+        var CENTER = [14.6065, -90.5056];
+        var STATION_COORDS = { 'S1': [14.607704, -90.505142], 'S2': [14.605283, -90.506137] };
+
+        var map = L.map('ride-map', { zoomControl: false, dragging: true, scrollWheelZoom: false })
+                   .setView(CENTER, 16);
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+        }).addTo(map);
+
+        /* geofence */
+        L.circle(CENTER, {
+            radius: 400,
+            color: '#A22522', fillColor: '#A22522',
+            fillOpacity: 0.05, weight: 2, dashArray: '6 4',
+        }).addTo(map);
+
+        /* station markers */
+        Object.keys(STATION_COORDS).forEach(function (sid) {
+            var coords = STATION_COORDS[sid];
+            var icon = L.divIcon({
+                className: '',
+                html: '<div style="width:32px;height:32px;background:#A22522;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.2);border:2px solid #fff;">' +
+                      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="#fff"/></svg></div>',
+                iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -36],
+            });
+            L.marker(coords, { icon: icon })
+             .addTo(map)
+             .bindPopup('<div class="g-popup"><p class="g-popup-name">' + sid + '</p></div>');
+        });
+
+    })();
+    </script>
 </body>
 </html>

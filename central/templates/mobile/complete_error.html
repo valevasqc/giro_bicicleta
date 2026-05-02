@@ -3,28 +3,61 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Error de retorno - Giro Bicicleta</title>
+    <title>Error de Retorno – GIRO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
-<body class="has-chrome">
+<body class="g-screen">
+    <header class="g-hdr">
+        <span class="g-hdr-brand">GIRO</span>
+    </header>
+
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <section class="mobile-card">
-            <p class="eyebrow">Retorno</p>
-            <h1>No se pudo completar el retorno</h1>
-            <p class="error-box">{{ error_message }}</p>
+    <main class="g-content">
 
+        <section style="text-align:center; margin-bottom:2.5rem; margin-top:.5rem;">
+            <div style="width:72px; height:72px; border-radius:50%;
+                         background:rgba(162,37,34,.1); color:var(--primary);
+                         display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="g-eyebrow g-mb-sm" style="justify-content:center;">
+                <span class="g-eyebrow-dot" style="background:var(--error);"></span>
+                <span class="g-eyebrow-text">Retorno</span>
+            </div>
+            <h1 class="g-big-title" style="text-align:left;">NO SE PUDO<br><span class="accent">COMPLETAR</span></h1>
+        </section>
+
+        <p class="g-err g-mb">{{ error_message }}</p>
+
+        <div style="background:var(--sc-low); border-radius:12px; padding:1.5rem;
+                     box-shadow:var(--ambient); outline:1px solid var(--outline-10); margin-bottom:2rem;">
+            <p style="margin:0; font-family:'Public Sans',system-ui,sans-serif;
+                       font-size:.78rem; font-weight:600; color:var(--on-variant); line-height:1.6;">
+                Estación: <strong>{{ station_name }} ({{ station_id }})</strong><br>
+                Si el problema persiste, contacta a soporte o acércate al personal de la estación.
+            </p>
+        </div>
+
+        <div class="g-stack">
             <form method="post" action="{{ url_for('mobile_complete_return_page') }}">
                 <input type="hidden" name="station_id" value="{{ station_id }}" />
-                <button type="submit" class="btn btn-primary">Reintentar</button>
+                <button type="submit" class="g-btn g-btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Reintentar
+                </button>
             </form>
-            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Ver estaciones</a>
-        </section>
+
+            <form method="post" action="{{ url_for('mobile_reset_after_error_page') }}">
+                <button type="submit" class="g-btn g-btn-ghost">
+                    Ver Estaciones
+                </button>
+            </form>
+        </div>
+
     </main>
 </body>
 </html>

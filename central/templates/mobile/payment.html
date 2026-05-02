@@ -3,56 +3,187 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Autorizar pago - Giro Bicicleta</title>
+    <title>Autorizar Pago – GIRO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
-<body class="has-chrome">
+<body class="g-screen">
+    <header class="g-hdr">
+        <div class="g-hdr-back">
+            <a class="g-back-btn" href="{{ url_for('mobile_station_detail_page', station_id=station_id) }}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            </a>
+            <span class="g-hdr-sub">Pasarela de Pago</span>
+        </div>
+        <span class="g-hdr-brand">GIRO</span>
+    </header>
+
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <section class="mobile-card">
-            <p class="eyebrow">Confirmar renta</p>
-            <h1>Autorizar pago</h1>
+    <main class="g-content">
 
-            <div class="list-item" style="gap:0.4rem;">
-                <div class="profile-row" style="padding:0.35rem 0;">
-                    <span class="label">Estación</span>
-                    <span class="value">{{ station_name }} ({{ station_id }})</span>
+        {# ── balance card ────────────────────────────────────── #}
+        <section class="g-wallet-card g-mb">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem;">
+                <div>
+                    <p class="g-wallet-lbl">Tu Saldo Disponible</p>
+                    <p class="g-wallet-amount">T{{ "%.2f"|format(balance) }}</p>
                 </div>
-                <div class="profile-row" style="padding:0.35rem 0;border-bottom:none;">
-                    <span class="label">Bicicleta</span>
-                    <span class="value">{{ bike_id }}</span>
+                <div style="background:var(--primary-dim); padding:.75rem; border-radius:12px; color:var(--primary);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+            </div>
+            <a href="{{ url_for('mobile_topup_page') }}"
+               class="g-btn g-btn-primary" style="font-size:.6rem; padding:.85rem;">
+                Recargar con Código
+            </a>
+        </section>
+
+        {# ── section header ──────────────────────────────────── #}
+        <section class="g-mb">
+            <div class="g-eyebrow g-mb-sm">
+                <span class="g-eyebrow-dot" style="animation:g-pulse 2s ease-in-out infinite;"></span>
+                <span class="g-eyebrow-text">Saldo Mínimo Requerido</span>
+            </div>
+            <h1 class="g-big-title" style="margin-bottom:.4rem;"><span class="accent">AUTORIZAR</span></h1>
+            <p style="font-family:'Public Sans',system-ui,sans-serif; font-size:.72rem; font-weight:600; color:var(--primary); margin:0;">
+                Estación {{ station_name }} · Bici {{ bike_id }}
+            </p>
+        </section>
+
+        {# ── requirement card ────────────────────────────────── #}
+        <section class="g-mb">
+            <div class="g-deposit-card">
+                <div class="g-deposit-bg">
+                    <svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <p class="g-deposit-lbl">Saldo Mínimo Requerido</p>
+                <p class="g-deposit-amt">50<span class="g-deposit-unit">TOKENS</span></p>
+            </div>
+
+            <div style="margin-top:1rem; padding:.9rem 1rem;
+                         background:var(--sc-low); border-radius:12px;
+                         border:1px solid var(--outline-10);
+                         display:flex; gap:.75rem; align-items:flex-start;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="flex-shrink:0; margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <p style="margin:0; font-family:'Public Sans',system-ui,sans-serif;
+                           font-size:.72rem; font-weight:600; color:var(--on-variant); line-height:1.5;">
+                    Necesitas al menos 50 tokens en tu cuenta para iniciar un viaje. El costo exacto se cobrará al finalizar según los minutos de uso.
+                </p>
+            </div>
+        </section>
+
+        {# ── payment method ──────────────────────────────────── #}
+        <section class="g-mb">
+            <p class="g-lbl" style="display:block; padding:.2rem .5rem; margin-bottom:.75rem; letter-spacing:.15em; text-transform:uppercase;">Método de Pago</p>
+
+            {# Balance (saldo) — real method #}
+            <div class="g-pay-method sel" id="mSaldo">
+                <div class="g-pay-method-row">
+                    <div class="g-pay-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h2M10 15h4"/></svg>
+                    </div>
+                    <div>
+                        <p class="g-pay-title">Saldo GIRO</p>
+                        <p class="g-pay-sub">T{{ "%.2f"|format(balance) }} disponible</p>
+                    </div>
+                    <svg class="g-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
             </div>
 
-            <p class="hint">El costo se calculará al finalizar el viaje y se descontará de tu saldo.</p>
+            {# Mis Tarjetas — mock saved credit cards #}
+            <div class="g-pay-method" id="mCards" style="margin-top:.75rem;" onclick="selectMethod(this)">
+                <div class="g-pay-method-row">
+                    <div class="g-pay-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <div>
+                        <p class="g-pay-title">Mis Tarjetas</p>
+                        <p class="g-pay-sub">Tarjetas de crédito guardadas</p>
+                    </div>
+                    <svg class="g-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="g-code-expand">
+                    <div class="g-code-expand-inner">
+                        {# Mock card 1 #}
+                        <div style="display:flex; align-items:center; gap:.75rem; padding:.75rem;
+                                     background:var(--sc-lowest); border-radius:8px; outline:1px solid var(--outline-10);">
+                            <div style="width:44px; height:30px; background:var(--sc-low); border-radius:6px;
+                                         display:flex; align-items:center; justify-content:center; outline:1px solid var(--outline-10);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            </div>
+                            <div style="flex:1;">
+                                <p style="margin:0; font-weight:700; font-size:.82rem; letter-spacing:.04em; color:var(--on-surface);">•••• •••• •••• 8842</p>
+                                <p style="margin:.15rem 0 0; font-family:'Public Sans',system-ui,sans-serif; font-size:.58rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--on-variant-40);">VISA</p>
+                            </div>
+                            <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.5rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; background:var(--primary-dim); color:var(--primary); border-radius:999px; padding:.2rem .6rem;">Principal</span>
+                        </div>
+                        {# Mock card 2 #}
+                        <div style="display:flex; align-items:center; gap:.75rem; padding:.75rem;
+                                     background:var(--sc-lowest); border-radius:8px; outline:1px solid var(--outline-10); margin-top:.5rem;">
+                            <div style="width:44px; height:30px; background:var(--sc-low); border-radius:6px;
+                                         display:flex; align-items:center; justify-content:center; outline:1px solid var(--outline-10);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            </div>
+                            <div style="flex:1;">
+                                <p style="margin:0; font-weight:700; font-size:.82rem; letter-spacing:.04em; color:var(--on-surface);">•••• •••• •••• 1234</p>
+                                <p style="margin:.15rem 0 0; font-family:'Public Sans',system-ui,sans-serif; font-size:.58rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--on-variant-40);">MASTERCARD</p>
+                            </div>
+                        </div>
+                        <p style="margin:.5rem 0 0; font-family:'Public Sans',system-ui,sans-serif;
+                                   font-size:.62rem; font-weight:600; color:var(--on-variant-40); line-height:1.5;">
+                            Próximamente disponible.
+                        </p>
+                    </div>
+                </div>
+            </div>
 
-            {% if error_message %}
-                <p class="error-box">{{ error_message }}</p>
-            {% endif %}
-
-            <form method="post" class="form-grid" id="mobile-payment-form">
-                <button type="submit" class="btn btn-primary" id="mobile-payment-btn">Empezar viaje</button>
-                <p class="loading-note" id="mobile-payment-loading" hidden>Autorizando...</p>
-            </form>
-            <a class="btn btn-ghost" href="{{ url_for('mobile_stations_page') }}">Cancelar</a>
+            {# Mock: Apple Pay / Google Pay #}
+            <div class="g-grid-2" style="margin-top:.75rem;">
+                <button type="button" class="g-social-btn" disabled title="No disponible">
+                    <svg width="16" height="16" viewBox="0 0 814.6 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.2 136.4-313.7 270.8-313.7 71.2 0 130.5 46.8 176.4 46.8 43.7 0 112.6-50.6 191.6-50.6zm-39.8-217.6c32.3-38.6 56.1-92.2 56.1-145.9 0-7.4-.6-14.9-1.9-20.7-53.4 2-116.8 35.2-155.5 83.8-29.6 35.8-57.8 89.4-57.8 143.8 0 8.3 1.3 16.6 1.9 19.3 3.2.6 8.3 1.3 13.5 1.3 47.4 0 106.7-32.2 143.7-81.6z"/></svg>
+                    Apple Pay
+                </button>
+                <button type="button" class="g-social-btn" disabled title="No disponible">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Google Pay
+                </button>
+            </div>
         </section>
+
+        <div class="g-security">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Transacción Encriptada: 256-bit AES
+        </div>
+
+        {% if error_message %}
+        <p class="g-err g-mb">{{ error_message }}</p>
+        {% endif %}
+
+        {# ── confirm button ──────────────────────────────────── #}
+        <form method="POST" action="{{ url_for('mobile_payment_page') }}" id="payForm">
+            <button type="submit" class="g-btn g-btn-primary" id="payBtn">
+                Confirmar e Iniciar Viaje
+            </button>
+        </form>
+
     </main>
+
     <script>
-        (function () {
-            const form = document.getElementById("mobile-payment-form");
-            const button = document.getElementById("mobile-payment-btn");
-            const loading = document.getElementById("mobile-payment-loading");
-            form.addEventListener("submit", function () {
-                button.disabled = true;
-                button.textContent = "Autorizando...";
-                loading.hidden = false;
-            });
-        })();
+    function selectMethod(el) {
+        document.querySelectorAll('.g-pay-method').forEach(function(m) { m.classList.remove('sel'); });
+        el.classList.add('sel');
+    }
+    document.getElementById('mSaldo').addEventListener('click', function() { selectMethod(this); });
+
+    var payForm = document.getElementById('payForm');
+    var payBtn  = document.getElementById('payBtn');
+    payForm.addEventListener('submit', function() {
+        payBtn.disabled = true;
+        payBtn.textContent = 'Autorizando...';
+    });
     </script>
 </body>
 </html>

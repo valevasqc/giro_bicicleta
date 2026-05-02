@@ -3,58 +3,196 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Mis Viajes - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Mis Viajes — GIRO</title>
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
-<body class="has-chrome">
+<body>
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <div style="display:grid;gap:0.85rem;">
+    <!-- Ride detail modal -->
+    <div class="g-modal" id="ride-modal" role="dialog" aria-modal="true">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;">
+            <div class="g-eyebrow">
+                <span class="g-eyebrow-dot success"></span>
+                <span class="g-eyebrow-text">Viaje Completado</span>
+            </div>
+            <button type="button" onclick="closeModal()" style="padding:.5rem;color:var(--on-variant-40);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
 
-            <h1 style="margin:0.2rem 0 0;">Mis Viajes</h1>
-
-            {% if active_rental %}
-                <div class="active-ride-banner">
-                    <div>
-                        <p class="banner-label">En curso ahora</p>
-                        <p class="banner-title">{{ active_rental.bike_id }} · desde {{ active_rental.start_station_id }}</p>
-                    </div>
-                    <a class="banner-btn" href="{{ url_for('mobile_ride_active_page') }}">Ver viaje</a>
+        <!-- cost display -->
+        <div class="g-summary-cost-card g-mb">
+            <p class="g-summary-cost-lbl">Costo del viaje</p>
+            <p class="g-summary-cost-val" id="md-cost">—</p>
+            <div class="g-summary-sub-row">
+                <div style="text-align:left;">
+                    <p class="g-summary-sub-lbl">Duración</p>
+                    <p class="g-summary-sub-val" id="md-duration">—</p>
                 </div>
+                <div style="text-align:right;">
+                    <p class="g-summary-sub-lbl">Bicicleta</p>
+                    <p class="g-summary-sub-val" id="md-bike">—</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- route -->
+        <p class="g-section-lbl g-mb-sm">Ruta</p>
+        <div class="g-route g-mb">
+            <div class="g-route-pt">
+                <div class="g-route-dot"></div>
+                <p class="g-route-lbl">Origen</p>
+                <p class="g-route-val" id="md-origin">—</p>
+            </div>
+            <div class="g-route-pt">
+                <div class="g-route-dot end"></div>
+                <p class="g-route-lbl">Destino</p>
+                <p class="g-route-val" id="md-dest">—</p>
+            </div>
+        </div>
+
+        <p class="g-lbl" style="text-align:center;margin-bottom:1.5rem;" id="md-date"></p>
+
+        <button type="button" onclick="closeModal()" class="g-btn g-btn-primary">Listo</button>
+    </div>
+
+    <div class="g-screen">
+        <main class="g-content">
+
+            <!-- active rental banner -->
+            {% if active_rental %}
+            <a href="{{ url_for('mobile_ride_active_page') }}" style="display:block;background:var(--secondary);border-radius:12px;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem;text-decoration:none;">
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#fff;animation:g-pulse 1.5s infinite;flex-shrink:0;"></span>
+                    <div>
+                        <p style="font-family:'Public Sans',sans-serif;font-size:.52rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.65);margin:0 0 .2rem;">Viaje en Curso</p>
+                        <p style="font-family:'Sora',sans-serif;font-size:.88rem;font-weight:800;color:#fff;margin:0;">{{ active_rental.bike_id }} · en curso</p>
+                    </div>
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            {% endif %}
+
+            <!-- page title -->
+            <div class="g-mb">
+                <div class="g-eyebrow">
+                    <span class="g-eyebrow-dot"></span>
+                    <span class="g-eyebrow-text">Historial</span>
+                </div>
+                <h1 class="g-big-title">MIS<br><span class="accent">VIAJES</span></h1>
+            </div>
+
+            <!-- weekly activity chart -->
+            {% if rides and weekly is defined %}
+            {% set max_w = weekly | max %}
+            <div class="g-card g-mb" style="padding:1.5rem;background:var(--primary);border-radius:16px;outline:none;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                    <p style="font-family:'Public Sans',sans-serif;font-size:.52rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.5);margin:0;">Esta semana</p>
+                    <p style="font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:#fff;margin:0;font-style:italic;">{{ weekly | sum }} viajes</p>
+                </div>
+                <div class="g-bars" style="height:4rem;">
+                    {% for cnt in weekly %}
+                    <div class="g-bar {% if max_w > 0 and cnt == max_w %}hi{% endif %}"
+                         style="height:{% if max_w > 0 %}{{ (cnt / max_w * 100) | int }}{% else %}4{% endif %}%;min-height:4px;"></div>
+                    {% endfor %}
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:.5rem;">
+                    {% for day in ['L','M','X','J','V','S','D'] %}
+                    <span style="font-family:'Public Sans',sans-serif;font-size:.45rem;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.35);flex:1;text-align:center;">{{ day }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- rides list -->
+            {% if rides %}
+            <div class="g-stack">
+                {% for ride in rides %}
+                <button
+                    type="button"
+                    class="g-ride-card"
+                    onclick="openModal({
+                        cost: '{{ 'T%.2f'|format(ride.simulated_cost) if ride.simulated_cost is not none else '—' }}',
+                        duration: '{{ '%d min'|format(ride.duration_minutes|int) if ride.duration_minutes is not none else '—' }}',
+                        bike: '{{ ride.bike_id }}',
+                        origin: '{{ (ride.start_station_name or ride.start_station_id)|e }}',
+                        dest: '{{ (ride.end_station_name or ride.end_station_id or '—')|e }}',
+                        date: '{{ ride.start_time_fmt }}'
+                    })"
+                >
+                    <div class="g-ride-thumb">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <p class="g-ride-date">{{ ride.start_time_fmt }}</p>
+                        <div style="font-family:'Sora',sans-serif;font-size:.95rem;font-weight:700;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.4rem;">
+                            {{ ride.start_station_name or ride.start_station_id }}
+                            <span style="color:var(--on-variant-20);font-weight:400;font-size:.75rem;"> → </span>
+                            {{ ride.end_station_name or ride.end_station_id or '—' }}
+                        </div>
+                        <div class="g-ride-stats">
+                            {% if ride.duration_minutes is not none %}
+                            <span class="g-ride-stat">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                {{ ride.duration_minutes|int }} min
+                            </span>
+                            {% endif %}
+                            {% if ride.simulated_cost is not none %}
+                            <span class="g-ride-stat sec">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                T{{ "%.2f"|format(ride.simulated_cost) }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--on-variant-20);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                {% endfor %}
+            </div>
+
+            {% else %}
+            <div style="text-align:center;padding:4rem 1.5rem;">
+                <div style="width:64px;height:64px;border-radius:16px;background:var(--sc-low);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;color:var(--on-variant-20);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>
+                </div>
+                <p style="font-family:'Sora',sans-serif;font-size:1rem;font-weight:700;color:var(--on-surface);margin:0 0 .5rem;">Sin viajes todavía</p>
+                <p style="font-family:'Public Sans',sans-serif;font-size:.75rem;color:var(--on-variant-40);margin:0 0 2rem;">¡Renta tu primera bicicleta!</p>
+                <a href="{{ url_for('mobile_stations_page') }}" class="g-btn g-btn-primary" style="max-width:240px;margin:0 auto;">Nuevo Viaje</a>
+            </div>
             {% endif %}
 
             {% if rides %}
-                <div style="display:grid;gap:0.65rem;">
-                    {% for ride in rides %}
-                        <article class="ride-card">
-                            <p class="ride-route">
-                                {{ ride.start_station_name or ride.start_station_id }}
-                                <span class="arrow">→</span>
-                                {{ ride.end_station_name or ride.end_station_id or "—" }}
-                            </p>
-                            <div class="ride-meta-row">
-                                <span class="ride-meta">{{ ride.bike_id }}</span>
-                                {% if ride.duration_minutes is not none %}
-                                    <span class="ride-meta">{{ ride.duration_minutes|int }} min</span>
-                                {% endif %}
-                                {% if ride.simulated_cost is not none %}
-                                    <span class="ride-meta ride-cost">Q{{ "%.2f"|format(ride.simulated_cost) }}</span>
-                                {% endif %}
-                            </div>
-                            <p class="ride-date">{{ ride.start_time_fmt }}</p>
-                        </article>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="empty-box">Aún no tienes viajes completados. ¡Renta tu primera bici!</p>
+            <div style="margin-top:1.5rem;">
+                <a href="{{ url_for('mobile_stations_page') }}" class="g-btn g-btn-primary">
+                    Nuevo Viaje
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+            </div>
             {% endif %}
 
-        </div>
-    </main>
+        </main>
+    </div>
+
+    <script>
+    function openModal(data) {
+        document.getElementById('md-cost').textContent     = data.cost;
+        document.getElementById('md-duration').textContent = data.duration;
+        document.getElementById('md-bike').textContent     = data.bike;
+        document.getElementById('md-origin').textContent   = data.origin;
+        document.getElementById('md-dest').textContent     = data.dest;
+        document.getElementById('md-date').textContent     = data.date;
+        document.getElementById('ride-modal').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        document.getElementById('ride-modal').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeModal();
+    });
+    </script>
 </body>
 </html>

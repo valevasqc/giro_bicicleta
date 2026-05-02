@@ -661,7 +661,7 @@ def mobile_complete_return_page():
             "currency": payload.get("currency") or "GTQ",
             "payment_status": payload.get("payment_status") or "captured",
         }
-        clear_mobile_session_data()
+        clear_mobile_ride_state()
         balance_after = float(payload.get("balance_remaining") or 0.0)
         return render_template(
             "mobile/return_summary.html",
@@ -1901,9 +1901,46 @@ def mobile_account_page():
             (user_id,),
         ).fetchone()
 
+        stats_row = conn.execute(
+            """
+            SELECT COUNT(*) as total_trips,
+                   COALESCE(SUM(duration_minutes), 0.0) as total_minutes
+            FROM rentals WHERE user_id = ? AND status = 'completed'
+            """,
+            (user_id,),
+        ).fetchone()
+
+        today = datetime.today().date()
+        week_ago = (today - timedelta(days=6)).isoformat()
+        weekly_rows = conn.execute(
+            """
+            SELECT DATE(start_time) as d, COUNT(*) as cnt
+            FROM rentals
+            WHERE user_id = ? AND status = 'completed'
+              AND DATE(start_time) >= ?
+            GROUP BY DATE(start_time)
+            """,
+            (user_id, week_ago),
+        ).fetchall()
+
     balance = float(row["balance"] or 0.0) if row else 0.0
     username = row["username"] if row else ""
     member_since = (row["created_at"] or "")[:10] if row else ""
+
+    total_trips = int(stats_row["total_trips"]) if stats_row else 0
+    total_minutes = float(stats_row["total_minutes"] or 0.0) if stats_row else 0.0
+    total_km = round((total_minutes / 60.0) * 15.0, 1)
+
+    weekly = [0] * 7
+    for wr in weekly_rows:
+        try:
+            from datetime import date as _date
+            trip_date = _date.fromisoformat(wr["d"])
+            idx = (today - trip_date).days
+            if 0 <= idx < 7:
+                weekly[6 - idx] = int(wr["cnt"])
+        except Exception:
+            pass
 
     return render_template(
         "mobile/account.html",
@@ -1911,6 +1948,9 @@ def mobile_account_page():
         username=username,
         balance=balance,
         member_since=member_since,
+        total_trips=total_trips,
+        total_km=total_km,
+        weekly=weekly,
         active_tab="account",
     )
 
@@ -1951,6 +1991,31 @@ def mobile_rides_page():
 
     balance = get_mobile_user_balance(user_id)
 
+    today = datetime.today().date()
+    week_ago = (today - timedelta(days=6)).isoformat()
+    with get_connection() as conn:
+        weekly_rows = conn.execute(
+            """
+            SELECT DATE(start_time) as d, COUNT(*) as cnt
+            FROM rentals
+            WHERE user_id = ? AND status = 'completed'
+              AND DATE(start_time) >= ?
+            GROUP BY DATE(start_time)
+            """,
+            (user_id, week_ago),
+        ).fetchall()
+
+    weekly = [0] * 7
+    for wr in weekly_rows:
+        try:
+            from datetime import date as _date
+            trip_date = _date.fromisoformat(wr["d"])
+            idx = (today - trip_date).days
+            if 0 <= idx < 7:
+                weekly[6 - idx] = int(wr["cnt"])
+        except Exception:
+            pass
+
     return render_template(
         "mobile/rides.html",
         customer_name=mobile_auth.get("name") or "Cliente",
@@ -1958,6 +2023,7 @@ def mobile_rides_page():
         active_tab="rides",
         rides=rides,
         active_rental=active_rental,
+        weekly=weekly,
     )
 
 

@@ -3,43 +3,265 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Estaciones - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Estaciones – GIRO</title>
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .map-panel { display: none; }
+        .list-panel { display: block; }
+        body.map-mode .map-panel { display: block; }
+        body.map-mode .list-panel { display: none; }
+
+        #station-map {
+            position: fixed;
+            top: calc(var(--hdr) + 58px);
+            left: 0; right: 0;
+            bottom: calc(var(--nav) + var(--safe-b));
+            z-index: 1;
+        }
+
+        /* GIRO-style Leaflet popup */
+        .leaflet-popup-content-wrapper {
+            background: rgba(248,246,236,.96);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12);
+            border: 1px solid rgba(74,69,65,.08);
+            padding: 0;
+        }
+        .leaflet-popup-content { margin: 0; }
+        .leaflet-popup-tip { background: rgba(248,246,236,.96); }
+        .g-popup {
+            padding: .75rem 1rem;
+            font-family: 'Public Sans', system-ui, sans-serif;
+            min-width: 150px;
+        }
+        .g-popup-name {
+            font-family: 'Sora', sans-serif;
+            font-size: .9rem; font-weight: 800;
+            color: #1A1714; margin: 0 0 .25rem;
+        }
+        .g-popup-status {
+            font-size: .55rem; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase;
+            margin: 0 0 .6rem;
+        }
+        .g-popup-link {
+            display: block; width: 100%; text-align: center;
+            background: #A22522; color: #fff !important;
+            border-radius: 6px; padding: .45rem .75rem;
+            font-size: .65rem; font-weight: 800;
+            letter-spacing: .12em; text-transform: uppercase;
+            text-decoration: none;
+        }
+    </style>
 </head>
-<body class="has-chrome">
+<body class="g-screen">
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <div style="display:grid;gap:0.85rem;">
+    {# ── controls row ──────────────────────────────────────── #}
+    <div style="position:fixed; top:var(--hdr); left:0; right:0; z-index:80;
+                padding:.75rem 1.5rem;
+                background:rgba(248,246,236,.88); backdrop-filter:blur(10px);
+                display:flex; align-items:center; justify-content:space-between; gap:.75rem;">
+        <div style="display:flex; align-items:center; gap:.5rem;
+                    background:rgba(248,246,236,.92); backdrop-filter:blur(12px);
+                    border-radius:10px; padding:.6rem .9rem;
+                    box-shadow:var(--ambient); outline:1px solid var(--outline-10); flex:1;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input style="background:transparent; border:none; outline:none;
+                          font-family:'Public Sans',system-ui,sans-serif;
+                          font-size:.58rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+                          color:var(--on-surface); flex:1; min-height:auto;"
+                   type="text" placeholder="BUSCAR ESTACIÓN..." id="searchInput" />
+        </div>
+        <button id="mapToggleBtn"
+                style="background:var(--primary-dim); border:1px solid rgba(162,37,34,.2); border-radius:999px;
+                       padding:.45rem 1rem; display:flex; align-items:center; gap:.4rem;
+                       color:var(--primary); font-family:'Public Sans',system-ui,sans-serif;
+                       font-size:.55rem; font-weight:900; letter-spacing:.15em; text-transform:uppercase;
+                       cursor:pointer; white-space:nowrap; transition:background .15s, color .15s;">
+            ⊞&nbsp;&nbsp;MAPA
+        </button>
+    </div>
 
-            {% if active_bike_id %}
-                <div class="active-ride-banner">
-                    <div>
-                        <p class="banner-label">Viaje activo</p>
-                        <p class="banner-title">{{ active_bike_id }}</p>
-                    </div>
-                    <a class="banner-btn" href="{{ url_for('mobile_ride_active_page') }}">Ver viaje</a>
-                </div>
-            {% endif %}
+    <main class="g-content" style="padding-top: calc(var(--hdr) + 58px + 1rem);">
 
-            <h1 style="margin:0;">Estaciones</h1>
+        {# ── active ride banner ──────────────────────────────── #}
+        {% if active_bike_id %}
+        <div style="background:var(--secondary); color:#fff; border-radius:14px;
+                    padding:1rem 1.25rem; display:flex; align-items:center;
+                    justify-content:space-between; gap:.75rem; margin-bottom:1.25rem;">
+            <div>
+                <p style="margin:0; font-family:'Public Sans',system-ui,sans-serif;
+                           font-size:.6rem; font-weight:700; letter-spacing:.08em;
+                           text-transform:uppercase; opacity:.8;">Viaje activo</p>
+                <p style="margin:.15rem 0 0; font-weight:800; font-size:.95rem;">{{ active_bike_id }}</p>
+            </div>
+            <a href="{{ url_for('mobile_ride_active_page') }}"
+               style="background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35);
+                      border-radius:10px; padding:.4rem .9rem;
+                      font-family:'Public Sans',system-ui,sans-serif;
+                      font-size:.7rem; font-weight:800; color:#fff;
+                      text-decoration:none; white-space:nowrap;">Ver viaje</a>
+        </div>
+        {% endif %}
 
-            <div class="list-grid">
+        {# ── list panel ──────────────────────────────────────── #}
+        <div class="list-panel">
+            <div class="g-eyebrow g-mb-sm">
+                <span class="g-eyebrow-dot"></span>
+                <span class="g-eyebrow-text">Estaciones Disponibles</span>
+            </div>
+            <h2 class="g-big-title g-mb" style="font-size:clamp(2rem,8vw,2.8rem);">
+                MIS<br><span class="accent">ESTACIONES</span>
+            </h2>
+
+            <div class="g-stack" id="stationList">
                 {% for station in stations %}
-                    <a class="list-item" href="{{ url_for('mobile_station_detail_page', station_id=station.station_id) }}">
-                        <p class="item-title">{{ station.name }}</p>
-                        <p class="item-sub">{{ station.station_id }}</p>
-                    </a>
+                <a class="g-station-item g-rise"
+                   href="{{ url_for('mobile_station_detail_page', station_id=station.station_id) }}"
+                   data-name="{{ station.name | lower }}">
+                    <div class="g-station-icon {% if station.dock_occupied %}avail{% else %}empty{% endif %}">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            <circle cx="12" cy="9" r="2.5"/>
+                        </svg>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <p class="g-station-name">{{ station.name }}</p>
+                        <p class="g-station-sub">
+                            {{ station.station_id }}
+                            {% if station.is_online %}· En línea{% else %}· Fuera de línea{% endif %}
+                        </p>
+                    </div>
+                    <div class="g-station-count">
+                        <span class="num {% if station.dock_occupied %}avail{% else %}empty{% endif %}">
+                            {% if station.dock_occupied %}1{% else %}0{% endif %}
+                        </span>
+                        <span class="unit">Bici</span>
+                    </div>
+                </a>
                 {% else %}
-                    <p class="empty-box">No hay estaciones registradas.</p>
+                <p style="color:var(--on-variant-40); font-family:'Public Sans',system-ui,sans-serif;
+                           font-size:.85rem; padding:1.5rem; text-align:center;">
+                    No hay estaciones registradas.
+                </p>
                 {% endfor %}
             </div>
-
         </div>
+
+        {# ── map panel ───────────────────────────────────────── #}
+        <div class="map-panel">
+            <div id="station-map"></div>
+        </div>
+
     </main>
+
+    {# Embed station data for JS #}
+    <script>
+    var STATION_DATA = {{ stations | tojson }};
+    var STATION_URLS = {
+        {% for station in stations %}
+        "{{ station.station_id }}": "{{ url_for('mobile_station_detail_page', station_id=station.station_id) }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function () {
+
+        /* ── search filter ── */
+        var input = document.getElementById('searchInput');
+        if (input) {
+            input.addEventListener('input', function () {
+                var q = this.value.toLowerCase().trim();
+                document.querySelectorAll('#stationList [data-name]').forEach(function (el) {
+                    el.style.display = (!q || el.dataset.name.includes(q)) ? '' : 'none';
+                });
+            });
+        }
+
+        /* ── map toggle ── */
+        var mapInitialized = false;
+        var leafletMap = null;
+
+        document.getElementById('mapToggleBtn').addEventListener('click', function () {
+            document.body.classList.toggle('map-mode');
+            var inMap = document.body.classList.contains('map-mode');
+            this.textContent = inMap ? '☰  LISTA' : '⊞  MAPA';
+            if (inMap && !mapInitialized) {
+                initMap();
+                mapInitialized = true;
+            } else if (inMap && leafletMap) {
+                leafletMap.invalidateSize();
+            }
+        });
+
+        /* ── Leaflet init ── */
+        function initMap() {
+            var CENTER = [14.6065, -90.5056];
+
+            /* hardcoded lat/lon for each known station (not stored in DB) */
+            var STATION_COORDS = {
+                'S1': [14.607704, -90.505142],
+                'S2': [14.605283, -90.506137]
+            };
+
+            leafletMap = L.map('station-map', { zoomControl: false }).setView(CENTER, 16);
+
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19,
+            }).addTo(leafletMap);
+
+            /* zoom control bottom-right */
+            L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+
+            /* geofence circle */
+            L.circle(CENTER, {
+                radius: 400,
+                color: '#A22522',
+                fillColor: '#A22522',
+                fillOpacity: 0.05,
+                weight: 2,
+                dashArray: '6 4',
+            }).addTo(leafletMap);
+
+            /* station markers */
+            STATION_DATA.forEach(function (s) {
+                var coords = STATION_COORDS[s.station_id];
+                if (!coords) return;
+
+                var available = s.dock_occupied === 1;
+                var color     = available ? '#A22522' : '#9a8f84';
+
+                var icon = L.divIcon({
+                    className: '',
+                    html: '<div style="width:40px;height:40px;background:' + color + ';border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,.22);border:2px solid #fff;">' +
+                          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="#fff"/></svg></div>',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -44],
+                });
+
+                var statusTxt  = available ? '<span style="color:#3F6634;">● Disponible</span>' : '<span style="color:#9a8f84;">● Sin unidades</span>';
+                var popupHtml  = '<div class="g-popup">' +
+                    '<p class="g-popup-name">' + s.name + '</p>' +
+                    '<p class="g-popup-status">' + statusTxt + '</p>' +
+                    '<a class="g-popup-link" href="' + (STATION_URLS[s.station_id] || '#') + '">Ver estación →</a>' +
+                    '</div>';
+
+                L.marker(coords, { icon: icon })
+                    .addTo(leafletMap)
+                    .bindPopup(popupHtml, { maxWidth: 220 });
+            });
+
+            leafletMap.invalidateSize();
+        }
+
+    })();
+    </script>
 </body>
 </html>

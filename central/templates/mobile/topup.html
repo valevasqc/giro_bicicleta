@@ -3,52 +3,170 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Recargar Saldo - Giro Bicicleta</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Pagos — GIRO</title>
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/mobile.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
-<body class="has-chrome">
+<body>
     {% include "mobile/_chrome.html" %}
 
-    <main class="mobile-shell">
-        <section class="mobile-card">
-            <p class="eyebrow">Recarga</p>
-            <h1>Recargar saldo</h1>
+    <div class="g-screen">
+        <main class="g-content">
 
-            <div class="balance-hero {% if current_balance < 5 %}low{% endif %}">
-                <p class="label">Saldo actual</p>
-                <p class="amount">Q{{ "%.2f"|format(current_balance) }}</p>
+            <!-- page title -->
+            <div class="g-mb">
+                <div class="g-eyebrow">
+                    <span class="g-eyebrow-dot"></span>
+                    <span class="g-eyebrow-text">Saldo y Recarga</span>
+                </div>
+                <h1 class="g-big-title">MIS<br><span class="accent">PAGOS</span></h1>
+            </div>
+
+            <!-- wallet card -->
+            <div class="g-wallet-card g-mb">
+                <p class="g-wallet-lbl">Saldo GIRO</p>
+                <p class="g-wallet-amount {% if current_balance < 5 %}g-hl{% endif %}" style="{% if current_balance < 5 %}color:var(--error);{% endif %}">
+                    T{{ "%.2f"|format(current_balance) }}
+                </p>
                 {% if current_balance < 0 %}
-                    <p class="warn-note">Saldo negativo — recarga antes de tu próxima renta.</p>
+                <p style="font-family:'Public Sans',sans-serif;font-size:.68rem;font-weight:600;color:var(--error);margin:.5rem 0 0;">Saldo negativo — recarga antes de tu próxima renta.</p>
+                {% elif current_balance < 5 %}
+                <p style="font-family:'Public Sans',sans-serif;font-size:.68rem;font-weight:600;color:var(--secondary);margin:.5rem 0 0;">Saldo bajo — considera recargar.</p>
                 {% endif %}
             </div>
 
-            {% if success_message %}
-                <p class="info-box">{{ success_message }}</p>
-            {% endif %}
+            <!-- messages -->
+            {% if success_message %}<div class="g-ok g-mb">{{ success_message }}</div>{% endif %}
+            {% if error_message %}<div class="g-err g-mb">{{ error_message }}</div>{% endif %}
 
-            {% if error_message %}
-                <p class="error-box">{{ error_message }}</p>
-            {% endif %}
+            <!-- real: topup code -->
+            <p class="g-section-lbl g-mb-sm">Canjear Código</p>
+            <div class="g-pay-method sel g-mb" style="cursor:default;">
+                <div class="g-pay-method-row">
+                    <div class="g-pay-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <p class="g-pay-title">Saldo GIRO</p>
+                        <p class="g-pay-sub">Canjea un código de recarga</p>
+                    </div>
+                    <svg class="g-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div style="padding-top:1.4rem;margin-top:1rem;border-top:1px solid var(--outline-10);">
+                    <form method="post" action="{{ url_for('mobile_topup_page') }}" id="topup-form">
+                        <div class="g-field g-mb-sm">
+                            <label for="code" class="g-field-label">Código de Recarga</label>
+                            <div class="g-code-wrap">
+                                <span class="g-code-icon">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                </span>
+                                <input
+                                    type="text"
+                                    id="code"
+                                    name="code"
+                                    class="g-code-input"
+                                    maxlength="8"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    placeholder="AB12CD34"
+                                    style="text-transform:uppercase;"
+                                    oninput="this.value=this.value.toUpperCase()"
+                                />
+                            </div>
+                        </div>
+                        <button type="submit" class="g-btn g-btn-primary" id="topup-submit">
+                            Canjear Código
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
 
-            <form method="post" action="{{ url_for('mobile_topup_page') }}" class="form-grid">
-                <label for="code">Código de recarga</label>
-                <input
-                    type="text"
-                    id="code"
-                    name="code"
-                    class="code-input"
-                    maxlength="8"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="AB12CD34"
-                />
-                <button type="submit" class="btn btn-primary">Canjear código</button>
-            </form>
-        </section>
-    </main>
+            <!-- mock: saved credit cards -->
+            <p class="g-section-lbl g-mb-sm">Mis Tarjetas</p>
+            <div class="g-stack g-mb">
+                <!-- Card 1 — mock -->
+                <div style="background:var(--sc-low); border-radius:12px; padding:1.1rem 1.25rem;
+                             display:flex; align-items:center; gap:.9rem;
+                             box-shadow:var(--ambient); outline:1px solid var(--outline-10);">
+                    <div style="width:52px; height:36px; background:var(--sc-lowest); border-radius:8px;
+                                 display:flex; align-items:center; justify-content:center; outline:1px solid var(--outline-10); flex-shrink:0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <p style="margin:0; font-weight:700; font-size:.88rem; letter-spacing:.04em; color:var(--on-surface);">•••• •••• •••• 8842</p>
+                        <p style="margin:.2rem 0 0; font-family:'Public Sans',system-ui,sans-serif; font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--on-variant-40);">VISA</p>
+                    </div>
+                    <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.52rem; font-weight:900;
+                                  letter-spacing:.1em; text-transform:uppercase; background:var(--primary-dim);
+                                  color:var(--primary); border-radius:999px; padding:.25rem .7rem; white-space:nowrap;">Principal</span>
+                </div>
+                <!-- Card 2 — mock -->
+                <div style="background:var(--sc-low); border-radius:12px; padding:1.1rem 1.25rem;
+                             display:flex; align-items:center; gap:.9rem;
+                             box-shadow:var(--ambient); outline:1px solid var(--outline-10);">
+                    <div style="width:52px; height:36px; background:var(--sc-lowest); border-radius:8px;
+                                 display:flex; align-items:center; justify-content:center; outline:1px solid var(--outline-10); flex-shrink:0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <p style="margin:0; font-weight:700; font-size:.88rem; letter-spacing:.04em; color:var(--on-surface);">•••• •••• •••• 1234</p>
+                        <p style="margin:.2rem 0 0; font-family:'Public Sans',system-ui,sans-serif; font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--on-variant-40);">MASTERCARD</p>
+                    </div>
+                </div>
+                <!-- Add new card — mock -->
+                <button type="button" style="background:none; border:2px dashed var(--outline); border-radius:12px;
+                                              padding:1.1rem 1.25rem; display:flex; align-items:center; justify-content:center;
+                                              gap:.75rem; color:var(--on-variant-40); cursor:default; opacity:.55;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span style="font-family:'Public Sans',system-ui,sans-serif; font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;">Agregar Nueva Tarjeta</span>
+                </button>
+            </div>
+
+            <!-- mock: other payment methods -->
+            <p class="g-section-lbl g-mb-sm">Otras formas de pago</p>
+            <div class="g-stack g-mb">
+                <!-- Apple Pay — mock -->
+                <div class="g-pay-method" style="opacity:.4;cursor:not-allowed;">
+                    <div class="g-pay-method-row">
+                        <div class="g-pay-icon">
+                            <svg width="18" height="18" viewBox="0 0 814.6 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.2 136.4-313.7 270.8-313.7 71.2 0 130.5 46.8 176.4 46.8 43.7 0 112.6-50.6 191.6-50.6zm-39.8-217.6c32.3-38.6 56.1-92.2 56.1-145.9 0-7.4-.6-14.9-1.9-20.7-53.4 2-116.8 35.2-155.5 83.8-29.6 35.8-57.8 89.4-57.8 143.8 0 8.3 1.3 16.6 1.9 19.3 3.2.6 8.3 1.3 13.5 1.3 47.4 0 106.7-32.2 143.7-81.6z"/></svg>
+                        </div>
+                        <div style="flex:1;">
+                            <p class="g-pay-title">Apple Pay</p>
+                            <p class="g-pay-sub">No disponible — próximamente</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Google Pay — mock -->
+                <div class="g-pay-method" style="opacity:.4;cursor:not-allowed;">
+                    <div class="g-pay-method-row">
+                        <div class="g-pay-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        </div>
+                        <div style="flex:1;">
+                            <p class="g-pay-title">Google Pay</p>
+                            <p class="g-pay-sub">No disponible — próximamente</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- security note -->
+            <div class="g-security">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Transacciones protegidas por cifrado de extremo a extremo
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+    document.getElementById('topup-form').addEventListener('submit', function() {
+        var btn = document.getElementById('topup-submit');
+        btn.disabled = true;
+        btn.textContent = 'Procesando…';
+    });
+    </script>
 </body>
 </html>

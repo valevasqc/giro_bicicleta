@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class GPIODriver:
-    """Controls the physical lock and reads dock/charge reed switches.
+    """Controls the physical lock and reads dock/charge sensors.
 
     In stub mode (no Raspberry Pi hardware) every mutating call prints its
     action and sensor reads return their default stub values, so the full
@@ -15,8 +15,10 @@ class GPIODriver:
     Args:
         stub:       When True, print-only mode; no RPi.GPIO calls are made.
         lock_pin:   BCM GPIO pin number connected to the lock solenoid (OUT).
-        dock_pin:   BCM GPIO pin number connected to the dock reed switch (IN).
-        charge_pin: BCM GPIO pin number connected to the charge reed switch (IN).
+        dock_pin:   BCM GPIO pin number for the SPDT limit switch (IN, PUD_DOWN).
+                    COM→3.3V, NO→GPIO; HIGH = bike docked.
+        charge_pin: BCM GPIO pin number for the QT30CM IR break-beam (IN, PUD_UP).
+                    NPN open-collector output; LOW = beam broken = charger connected.
     """
 
     def __init__(
@@ -46,7 +48,7 @@ class GPIODriver:
             if lock_pin is not None and not stub_lock:
                 GPIO.setup(lock_pin, GPIO.OUT, initial=self._locked_level())
             if dock_pin is not None and not stub_sensors:
-                GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             if charge_pin is not None and not stub_sensors:
                 GPIO.setup(charge_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -83,8 +85,10 @@ class GPIODriver:
             return False
 
     def read_dock_occupied(self) -> bool:
-        """Return True if a bike is present in the dock (reed switch closed).
+        """Return True if a bike is present in the dock.
 
+        SPDT limit switch: COM→3.3V, NO→GPIO 27, internal PUD_DOWN.
+        HIGH = switch closed = bike docked.
         In stub mode returns configured stub_dock_occupied default.
         """
         if self._stub_sensors:
@@ -95,14 +99,17 @@ class GPIODriver:
             return False
 
         try:
-            return not bool(self._GPIO.input(self._dock_pin))  # active-low
+            return bool(self._GPIO.input(self._dock_pin))  # active-high
         except Exception as exc:
             logger.warning("[GPIO] read_dock_occupied failed: %s", exc)
             return False
 
     def read_charge_connected(self) -> bool:
-        """Return True if the charging cable is plugged in (reed switch closed).
+        """Return True if the charging cable is plugged in.
 
+        QT30CM IR break-beam, NPN open-collector output, internal PUD_UP.
+        LOW = beam broken = charger connected; inverted here so callers
+        see True for "connected" without knowing the hardware polarity.
         In stub mode returns configured stub_charge_connected default.
         """
         if self._stub_sensors:
@@ -113,7 +120,7 @@ class GPIODriver:
             return False
 
         try:
-            return not bool(self._GPIO.input(self._charge_pin))  # active-low
+            return not bool(self._GPIO.input(self._charge_pin))  # LOW = beam broken = connected
         except Exception as exc:
             logger.warning("[GPIO] read_charge_connected failed: %s", exc)
             return False
