@@ -46,7 +46,10 @@ class GPIODriver:
             self._GPIO = GPIO
             GPIO.setmode(GPIO.BCM)
             if lock_pin is not None and not stub_lock:
-                GPIO.setup(lock_pin, GPIO.OUT, initial=self._locked_level())
+                intended = self._locked_level()
+                GPIO.setup(lock_pin, GPIO.OUT, initial=intended)
+                actual = GPIO.input(lock_pin)
+                print(f"[GPIO INIT] pin={lock_pin} lock_unlocks_when_high={lock_unlocks_when_high} intended={'HIGH' if intended else 'LOW'} actual={'HIGH' if actual else 'LOW'}", flush=True)
             if dock_pin is not None and not stub_sensors:
                 GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             if charge_pin is not None and not stub_sensors:
