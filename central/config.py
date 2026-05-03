@@ -62,7 +62,7 @@ STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_station.log"
 # Real pyserial settings (ignored when STUB_LORA is true).
 LORA_PORT = "/dev/cu.usbserial-10"
 LORA_SERIAL_PORT = LORA_PORT
-LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
+LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "115200"))
 
 # Geofence — UFM main campus. Center of the presentation route, 400 m radius.
 GEOFENCE_CENTER_LAT = float(os.getenv("GEOFENCE_CENTER_LAT", "14.6065"))

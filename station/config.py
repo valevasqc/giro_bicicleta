@@ -55,7 +55,7 @@ STUB_LORA_INBOUND = STUB_LORA_DIR / "to_station.log"
 # Real pyserial settings (ignored when STUB_LORA is true).
 LORA_PORT = "/dev/ttyACM0"
 LORA_SERIAL_PORT = LORA_PORT
-LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "9600"))
+LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "115200"))
 
 # --- Kiosk timing -------------------------------------------------------
 # How long the kiosk UI waits for a LoRa reply before giving up and
