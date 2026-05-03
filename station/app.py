@@ -38,6 +38,7 @@ from station.config import (
     STUB_LORA_INBOUND,
     STUB_LORA_OUTBOUND,
 )
+from station import lora_io
 from station.gpio_driver import GPIODriver
 from station.heartbeat import HeartbeatSender
 from station.lora_receiver import LoRaReceiver
@@ -69,21 +70,20 @@ def create_app() -> Flask:
     )
     app.extensions["gpio"] = gpio
 
-    sender = LoRaSender(
+    # lora_io owns the single serial.Serial for this process.  Init first so
+    # neither LoRaSender nor LoRaReceiver ever open the port themselves.
+    lora_io.init(
+        LORA_SERIAL_PORT,
+        LORA_BAUD_RATE,
         stub=STUB_LORA,
-        stub_path=STUB_LORA_OUTBOUND if STUB_LORA else None,
-        serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
-        baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
+        stub_in=STUB_LORA_INBOUND if STUB_LORA else None,
+        stub_out=STUB_LORA_OUTBOUND if STUB_LORA else None,
     )
+
+    sender = LoRaSender()
     app.extensions["lora_sender"] = sender
 
-    receiver = LoRaReceiver(
-        stub=STUB_LORA,
-        stub_path=STUB_LORA_INBOUND if STUB_LORA else None,
-        serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
-        baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
-        serial_obj=sender if not STUB_LORA else None,
-    )
+    receiver = LoRaReceiver()
     receiver.start()
     app.extensions["lora_receiver"] = receiver
 

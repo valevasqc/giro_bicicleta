@@ -1,32 +1,22 @@
-"""Inbound LoRa: station -> central.
+"""Inbound LoRa dispatcher: station -> central.
 
-Runs as a daemon thread. Reads one line at a time from the shared stub
-file (or serial port), parses via common.lora_protocol, and dispatches
-to a handler that mutates the DB and/or emits a reply via the attached
-LoRaSender.
+Pure message-routing layer — serial/stub I/O is owned by lora_io.
+Call start() once to register this object as the inbound handler;
+lora_io launches a daemon thread that calls _handle_line() for every
+non-empty, non-comment line arriving from the LoRa module.
 
-Stub mode tails an append-only file from its current EOF, keeping a
-read offset so a restart doesn't re-consume old messages. Serial mode
-uses pyserial.readline() with a short timeout.
-
-All handlers are wrapped in try/except at the dispatch boundary — a
-bad message logs and is skipped; the thread never dies on bad input.
+All handlers are wrapped in try/except at the dispatch boundary so a
+bad message logs and is skipped without killing the read thread.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-
-try:
-    import serial
-except ImportError:
-    serial = None
 
 try:
     from .database import get_connection, log_event
@@ -40,6 +30,7 @@ try:
         GEOFENCE_RADIUS_M,
     )
     from .services import topup_service
+    from . import lora_io
 except ImportError:
     from database import get_connection, log_event
     from pricing import calculate_duration_minutes, calculate_cost
@@ -52,6 +43,7 @@ except ImportError:
         GEOFENCE_RADIUS_M,
     )
     import services.topup_service as topup_service
+    import lora_io
 
 try:
     from common.lora_protocol import (
@@ -123,96 +115,23 @@ def _to_int01(value) -> int:
     return 0
 
 
-class LoRaReceiver(threading.Thread):
-    def __init__(
-        self,
-        stub: bool,
-        stub_path: Path | None,
-        serial_port: str | None,
-        baud_rate: int | None,
-        sender,
-        poll_interval: float = 0.2,
-    ):
-        super().__init__(daemon=True, name="central-lora-receiver")
-        self._stub = stub
-        self._stub_path = stub_path
-        self._serial_port = serial_port
-        self._baud_rate = baud_rate
+class LoRaReceiver:
+    def __init__(self, sender):
         self._sender = sender
-        self._poll_interval = poll_interval
-        self._stop = threading.Event()
+
+    def start(self) -> None:
+        """Register _handle_line with lora_io and start the read thread."""
+        lora_io.start_read_thread(self._handle_line)
 
     def stop(self) -> None:
-        self._stop.set()
-
-    def run(self) -> None:
-        if self._stub:
-            self._run_stub()
-        else:
-            self._run_serial()
-
-    # --- stub mode ------------------------------------------------------
-    def _run_stub(self) -> None:
-        self._stub_path.parent.mkdir(parents=True, exist_ok=True)
-        self._stub_path.touch(exist_ok=True)
-
-        offset = self._stub_path.stat().st_size
-        logger.info("[LORA STUB] central receiver tailing %s from offset %d", self._stub_path, offset)
-
-        buffer = ""
-        while not self._stop.is_set():
-            try:
-                with self._stub_path.open("r", encoding="utf-8") as fh:
-                    fh.seek(offset)
-                    chunk = fh.read()
-                    offset = fh.tell()
-            except FileNotFoundError:
-                time.sleep(self._poll_interval)
-                continue
-
-            if not chunk:
-                time.sleep(self._poll_interval)
-                continue
-
-            buffer += chunk
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                self._handle_line(line)
-
-    # --- serial mode ----------------------------------------------------
-    def _run_serial(self) -> None:
-        if serial is None:
-            raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
-
-        logger.info("[LORA RX] serial mode on %s, waiting for connection…", self._serial_port)
-        while not self._stop.is_set():
-            # Re-fetch serial from sender each iteration so reconnects are transparent.
-            ser = getattr(self._sender, "serial", None)
-            if ser is None or not ser.is_open:
-                time.sleep(0.5)
-                continue
-
-            try:
-                raw = ser.readline()
-            except Exception as exc:
-                logger.warning("[LORA RX] serial read error: %s", exc)
-                self._sender.reset_connection()
-                time.sleep(2)
-                continue
-
-            if not raw:
-                continue
-
-            self._handle_line(raw.decode("utf-8", errors="replace"))
+        lora_io.stop()
 
     # --- dispatch -------------------------------------------------------
     def _handle_line(self, line: str) -> None:
-        stripped = line.strip()
-        # Silently skip ESP32 diagnostic lines (# debug, READY).
-        # Keep TX result: visible — it only appears on TX failure in new firmware.
-        if not stripped or stripped.startswith("#") or stripped.startswith("READY"):
+        # line arrives already stripped and non-empty from lora_io._dispatch
+        if line.startswith("READY"):
             return
-        logger.debug("[LORA RX] handle_line: %r", stripped)
+        logger.debug("[LORA RX] handle_line: %r", line)
         parsed = parse_message(line)
         if parsed is None:
             logger.warning("[LORA RX] dropped unparseable line: %r", line)
@@ -346,8 +265,6 @@ class LoRaReceiver(threading.Thread):
                 return
 
             if user["role"] != "customer":
-                # Kiosks are for customers only; station_service / admin must
-                # not be able to start rentals from the touchscreen.
                 login_fail("invalid_credentials")
                 return
 
@@ -362,12 +279,9 @@ class LoRaReceiver(threading.Thread):
             balance = float(user["balance"] or 0.0)
             logger.debug("[LORA] RENTAL_REQUEST: balance=%.2f  minimum=%s", balance, MINIMUM_BALANCE_TO_RENT)
 
-            # Mint the session token before any rental-eligibility checks so
-            # LOGIN_OK can always be paired with RENTAL_DENIED (return flow,
-            # insufficient balance) giving the station the token it needs.
             import secrets
             from datetime import timedelta
-            token = secrets.token_hex(8)  # 16 hex chars — shorter LoRa packet, still 64-bit entropy
+            token = secrets.token_hex(8)
             expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
             conn.execute(
                 """
@@ -379,10 +293,8 @@ class LoRaReceiver(threading.Thread):
             conn.commit()
 
             user_id = user["user_id"]
-            name = (user["name"] or "")[:16]  # truncate for LoRa packet size
+            name = (user["name"] or "")[:16]
 
-            # Check active rental AFTER token creation so we can send LOGIN_OK
-            # alongside RENTAL_DENIED, letting the station route to the return flow.
             active_user_rental = conn.execute(
                 "SELECT rental_id FROM rentals WHERE user_id = ? AND status = 'active'",
                 (user["user_id"],),
@@ -417,8 +329,6 @@ class LoRaReceiver(threading.Thread):
         ts = _utc_iso()
         login_ok_msg = format_message(LOGIN_OK, station_id, user_id, name, token, f"{balance:.2f}", ts)
 
-        # Any case where LOGIN_OK is paired with RENTAL_DENIED — send both
-        # messages twice so a single packet loss doesn't strand the station.
         def _send_login_ok_denied(reason: str) -> None:
             denied_msg = format_message(RENTAL_DENIED, station_id, reason, ts)
             logger.info("[LORA] LOGIN_OK + RENTAL_DENIED(%s) → %s (attempt 1)", reason, station_id)
@@ -439,13 +349,9 @@ class LoRaReceiver(threading.Thread):
             return
 
         if balance < MINIMUM_BALANCE_TO_RENT:
-            # Auth succeeded but balance too low — station needs LOGIN_OK for
-            # the token so it can submit a TOPUP_REQUEST later.
             _send_login_ok_denied("insufficient_balance")
             return
 
-        # Both messages sent as a pair twice — if either is lost in the first
-        # attempt the retry at +3 s gives the station a second chance.
         approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, user_id, ts)
         logger.info("[LORA] LOGIN_OK + RENTAL_APPROVED → %s  bike=%s (attempt 1)", station_id, bike_id)
         self._sender.send(login_ok_msg)
@@ -472,9 +378,6 @@ class LoRaReceiver(threading.Thread):
         start_time = _utc_iso()
 
         with get_connection() as conn:
-            # Defensive: re-check eligibility. The approve/release pair is
-            # not atomic over LoRa, and another kiosk or admin action could
-            # have invalidated things in between.
             bike = conn.execute(
                 "SELECT bike_id, status, current_station_id FROM bikes WHERE bike_id = ?",
                 (bike_id,),
@@ -555,17 +458,12 @@ class LoRaReceiver(threading.Thread):
             ).fetchone()
 
             if not rental:
-                # Idempotent: the station may re-send BIKE_DOCKED if it lost
-                # our reply, or the bike may already be docked for an admin
-                # reason. Log and move on — nothing to bill.
                 logger.info("[LORA] BIKE_DOCKED: no active rental for %s; ignoring", bike_id)
                 self._safe_log_event(
                     source=station_id,
                     event_type="BIKE_DOCKED_NO_ACTIVE_RENTAL",
                     payload={"bike_id": bike_id},
                 )
-                # Still sync the physical state (bike is back in the dock)
-                # so the admin dashboard reflects reality.
                 conn.execute(
                     """
                     UPDATE bikes SET status = 'docked', current_station_id = ?
@@ -621,7 +519,6 @@ class LoRaReceiver(threading.Thread):
             user_name = rental["user_name"]
             rental_id = rental["rental_id"]
 
-        # RETURN_COMPLETE|station_id|bike_id|name|duration_minutes|cost|balance_remaining|ts
         rc_msg = format_message(
             RETURN_COMPLETE,
             station_id,

@@ -11,6 +11,7 @@ try:
     from .pricing import calculate_duration_minutes, calculate_cost
     from .lora_receiver import LoRaReceiver
     from .lora_sender import LoRaSender
+    from . import lora_io
     from .config import (
         SECRET_KEY,
         STATION_ID,
@@ -35,6 +36,7 @@ except ImportError:
     from pricing import calculate_duration_minutes, calculate_cost
     from lora_receiver import LoRaReceiver
     from lora_sender import LoRaSender
+    import lora_io
     from config import (
         SECRET_KEY,
         STATION_ID,
@@ -65,23 +67,20 @@ app.config["SECRET_KEY"] = SECRET_KEY
 # receiver thread starts hitting it.
 init_db()
 
-# LoRa I/O for station <-> central messages. The receiver runs on a daemon
-# thread that tails the stub file (or serial port) and mutates the DB.
-lora_sender = LoRaSender(
+# lora_io owns the single serial.Serial for this process.  Init first so
+# neither LoRaSender nor LoRaReceiver ever open the port themselves.
+lora_io.init(
+    LORA_SERIAL_PORT,
+    LORA_BAUD_RATE,
     stub=STUB_LORA,
-    stub_path=STUB_LORA_OUTBOUND if STUB_LORA else None,
-    serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
-    baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
+    stub_in=STUB_LORA_INBOUND if STUB_LORA else None,
+    stub_out=STUB_LORA_OUTBOUND if STUB_LORA else None,
 )
+
+lora_sender = LoRaSender()
 app.extensions["lora_sender"] = lora_sender
 
-lora_receiver = LoRaReceiver(
-    stub=STUB_LORA,
-    stub_path=STUB_LORA_INBOUND if STUB_LORA else None,
-    serial_port=None if STUB_LORA else LORA_SERIAL_PORT,
-    baud_rate=None if STUB_LORA else LORA_BAUD_RATE,
-    sender=lora_sender,
-)
+lora_receiver = LoRaReceiver(sender=lora_sender)
 lora_receiver.start()
 app.extensions["lora_receiver"] = lora_receiver
 
