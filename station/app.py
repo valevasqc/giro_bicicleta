@@ -102,6 +102,7 @@ def create_app() -> Flask:
         "[STATION %s] Flask ready on http://%s:%s  (LoRa stub=%s, lock stub=%s, sensors stub=%s)",
         STATION_ID, STATION_HTTP_HOST, STATION_HTTP_PORT, STUB_LORA, STUB_LOCK, STUB_SENSORS,
     )
+
     return app
 
 

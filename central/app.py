@@ -14,6 +14,8 @@ try:
     from . import lora_io
     from .config import (
         SECRET_KEY,
+        CENTRAL_HTTP_HOST,
+        CENTRAL_HTTP_PORT,
         STATION_ID,
         STATION_SERVICE_USERNAME,
         STATION_SERVICE_PASSWORD,
@@ -39,6 +41,8 @@ except ImportError:
     import lora_io
     from config import (
         SECRET_KEY,
+        CENTRAL_HTTP_HOST,
+        CENTRAL_HTTP_PORT,
         STATION_ID,
         STATION_SERVICE_USERNAME,
         STATION_SERVICE_PASSWORD,
@@ -2029,4 +2033,4 @@ def mobile_rides_page():
 if __name__ == "__main__":
     # init_db + LoRa startup already happened at import time above so the
     # receiver thread is alive and listening by the time Flask binds the port.
-    app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)
+    app.run(host=CENTRAL_HTTP_HOST, port=CENTRAL_HTTP_PORT, debug=False, use_reloader=False)

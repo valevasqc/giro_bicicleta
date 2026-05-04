@@ -37,18 +37,22 @@ Python 3.11, Flask, SQLite (sqlite3), werkzeug.security, pyserial
 python3 -m venv .venv
 source .venv/bin/activate
 pip install Flask Werkzeug pyserial
+pip install python-dotenv
 
 # Init database
 python3 central/seed.py
 
-# Run central (stub LoRa on by default for dev)
-cd central && STUB_LORA=true flask run --port 8000
+# Run central with real LoRa hardware (from project root)
+./run_central.sh
+
+# Or run central in stub LoRa dev mode
+./run_dev.sh
 
 # Run station kiosk (separate terminal)
 cd station && STATION_ID=S1 STUB_GPIO=true STUB_LORA=true flask run --port 5001
 ```
 
-Or use the provided scripts: `run_dev.sh`, `run_s1_dev.sh`, `run_s1.sh`, `run_s2.sh`.
+Or use the provided scripts: `run_central.sh`, `run_dev.sh`, `run_s1_dev.sh`, `run_s1.sh`, `run_s2.sh`.
 
 ## Key routes
 

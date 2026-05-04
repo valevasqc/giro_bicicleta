@@ -7,6 +7,12 @@ DB_PATH = BASE_DIR / "giro_bicicleta.db"
 DATABASE_PATH = DB_PATH
 SCHEMA_PATH = BASE_DIR / "schema.sql"
 
+# HTTP server defaults for central.
+# `flask run` can read FLASK_RUN_* from central/.flaskenv, while direct
+# `python app.py` uses these values below.
+CENTRAL_HTTP_HOST = os.getenv("CENTRAL_HTTP_HOST", os.getenv("FLASK_RUN_HOST", "0.0.0.0"))
+CENTRAL_HTTP_PORT = int(os.getenv("CENTRAL_HTTP_PORT", os.getenv("FLASK_RUN_PORT", "8000")))
+
 # Station frontend configuration
 STATION_ID = os.getenv("STATION_ID", "S1").strip() or "S1"
 
