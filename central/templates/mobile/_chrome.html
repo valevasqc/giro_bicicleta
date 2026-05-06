@@ -6,7 +6,10 @@
 {% set eff_tab = 'pagos' if is_pagos else active_tab %}
 
 <header class="g-hdr">
-    <span class="g-hdr-brand">GIRO</span>
+    <span class="g-hdr-brand">
+        <img class="g-hdr-quetzal" src="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" alt="" />
+        <span class="g-hdr-name">GIRO</span>
+    </span>
     <a href="{{ url_for('mobile_topup_page') }}"
        class="g-balance-chip {% if balance is not none and balance < 5 %}low{% endif %}"
        style="display:flex; align-items:center; gap:.4rem;

@@ -2,6 +2,7 @@
 
 /* ── base — mobile-first ──────────────────────────────── */
 html {
+    font-size: 17px; /* iOS body standard; bumps all rem values proportionally */
     overflow-x: hidden;
 }
 

@@ -6,7 +6,7 @@
     <title>GIRO – Movilidad Urbana</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
 <body>
@@ -17,11 +17,18 @@
         </video>
     </div>
 
-    <header class="g-landing-logo">GIRO</header>
+    <header class="g-landing-logo">
+        <img class="g-landing-quetzal" src="{{ url_for('static', filename='img/giro_quetzal_white.png') }}" alt="" />
+        <span class="g-landing-name">GIRO</span>
+    </header>
 
     <main class="g-landing-cta">
         <a class="g-landing-btn" href="{{ url_for('mobile_login_page') }}">
             Iniciar Sesión
+        </a>
+        <a class="g-landing-btn" href="{{ url_for('mobile_register_page') }}"
+           style="background:transparent; border:2px solid rgba(255,255,255,.75); color:#fff; margin-top:.75rem;">
+            Crear Cuenta
         </a>
     </main>
 </div>

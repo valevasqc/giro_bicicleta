@@ -31,7 +31,7 @@ LOCK_PIN = int(os.getenv("LOCK_PIN", "17"))
 DOCK_PIN = int(os.getenv("DOCK_PIN", "27"))
 CHARGE_PIN = int(os.getenv("CHARGE_PIN", "22"))
 LOCK_UNLOCKS_WHEN_HIGH = os.getenv("LOCK_UNLOCKS_WHEN_HIGH", "true").lower() in ("1", "true", "yes")
-UNLOCK_DURATION_SECONDS = float(os.getenv("UNLOCK_DURATION_SECONDS", "5"))
+UNLOCK_DURATION_SECONDS = float(os.getenv("UNLOCK_DURATION_SECONDS", "1"))
 
 # Stub defaults used only by the GPIO stub (no hardware).
 STUB_DOCK_OCCUPIED = os.getenv("STUB_DOCK_OCCUPIED", "true").lower() in ("1", "true", "yes")

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Crear Cuenta – GIRO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
+</head>
+<body>
+<div class="g-login-wrap">
+    <div class="g-login-card g-rise">
+
+        <div style="text-align:center; margin-bottom:3.5rem;">
+            <img class="g-login-logo" src="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" alt="" />
+            <p class="g-login-name">GIRO</p>
+            <p class="g-login-sub">Crear Cuenta</p>
+        </div>
+
+        {% if error_message %}
+        <p class="g-err" style="margin-bottom:1.5rem;">{{ error_message }}</p>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('mobile_register_page') }}" style="display:flex; flex-direction:column; gap:2.5rem;">
+            <div class="g-field">
+                <label class="g-field-label" for="name">Nombre completo</label>
+                <input class="g-input" id="name" name="name" type="text"
+                       placeholder="Tu nombre"
+                       value="{{ form_values.get('name', '') }}" autocomplete="name" />
+            </div>
+
+            <div class="g-field">
+                <label class="g-field-label" for="username">Usuario</label>
+                <input class="g-input" id="username" name="username" type="text"
+                       placeholder="usuario@giro.app"
+                       value="{{ form_values.get('username', '') }}" autocomplete="username" />
+            </div>
+
+            <div class="g-field">
+                <label class="g-field-label" for="password">Clave de Acceso</label>
+                <input class="g-input" id="password" name="password" type="password"
+                       placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+            </div>
+
+            <div class="g-field">
+                <label class="g-field-label" for="confirm_password">Confirmar Clave</label>
+                <input class="g-input" id="confirm_password" name="confirm_password" type="password"
+                       placeholder="Repite tu clave" autocomplete="new-password" />
+            </div>
+
+            <button type="submit" class="g-btn g-btn-primary" style="margin-top:.5rem;">
+                Crear Cuenta
+            </button>
+        </form>
+
+        <div class="g-login-divider">
+            <div class="g-login-divider-line"></div>
+            <span class="g-login-divider-text">¿Ya tienes cuenta?</span>
+            <div class="g-login-divider-line"></div>
+        </div>
+
+        <a href="{{ url_for('mobile_login_page') }}" class="g-btn g-btn-secondary" style="display:block; text-align:center; text-decoration:none;">
+            Iniciar Sesión
+        </a>
+    </div>
+</div>
+</body>
+</html>

@@ -4,7 +4,7 @@ import secrets
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, request, render_template, redirect, session, url_for, make_response
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 try:
     from .database import get_connection, init_db, log_event
@@ -416,6 +416,81 @@ def mobile_logout_page():
 
     clear_mobile_session_data()
     return redirect(url_for("mobile_home_page"))
+
+
+@app.route("/mobile/register", methods=["GET", "POST"])
+def mobile_register_page():
+    if get_mobile_customer_session():
+        return redirect(url_for("mobile_stations_page"))
+
+    error_message = None
+    form_values = {}
+
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("confirm_password") or ""
+
+        form_values = {"name": name, "username": username}
+
+        if not name or not username or not password:
+            error_message = "Todos los campos son obligatorios."
+        elif len(password) < 8:
+            error_message = "La clave debe tener al menos 8 caracteres."
+        elif password != confirm:
+            error_message = "Las claves no coinciden."
+        else:
+            with get_connection() as conn:
+                existing = conn.execute(
+                    "SELECT user_id FROM users WHERE username = ?", (username,)
+                ).fetchone()
+
+            if existing:
+                error_message = "Ese nombre de usuario ya está en uso."
+            else:
+                new_user_id = str(uuid4())
+                password_hash = generate_password_hash(password)
+                try:
+                    with get_connection() as conn:
+                        conn.execute(
+                            """
+                            INSERT INTO users (user_id, username, name, password_hash, role, is_active, balance)
+                            VALUES (?, ?, ?, ?, 'customer', 1, 0.0)
+                            """,
+                            (new_user_id, username, name, password_hash),
+                        )
+                        conn.commit()
+                    log_event("SYSTEM", "USER_REGISTERED", {"user_id": new_user_id, "username": username})
+                except Exception:
+                    logger.exception("Failed to insert new user %s", username)
+                    error_message = "Error al crear la cuenta. Intenta de nuevo."
+                else:
+                    try:
+                        status_code, payload = call_internal_api(
+                            "POST",
+                            "/api/auth/login",
+                            payload={"username": username, "password": password},
+                        )
+                    except Exception:
+                        status_code, payload = 500, {"ok": False}
+
+                    if status_code == 200 and payload.get("ok"):
+                        session["mobile_customer_auth"] = {
+                            "token": payload.get("token"),
+                            "user_id": payload.get("user_id"),
+                            "name": payload.get("name"),
+                            "role": payload.get("role"),
+                        }
+                        return redirect(url_for("mobile_stations_page"))
+                    else:
+                        return redirect(url_for("mobile_login_page"))
+
+    return render_template(
+        "mobile/register.html",
+        error_message=error_message,
+        form_values=form_values,
+    )
 
 
 @app.route("/mobile/stations", methods=["GET"])

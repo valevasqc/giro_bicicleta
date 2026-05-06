@@ -17,8 +17,8 @@ class GPIODriver:
         lock_pin:   BCM GPIO pin number connected to the lock solenoid (OUT).
         dock_pin:   BCM GPIO pin number for the SPDT limit switch (IN, PUD_DOWN).
                     COM→3.3V, NO→GPIO; HIGH = bike docked.
-        charge_pin: BCM GPIO pin number for the QT30CM IR break-beam (IN, PUD_UP).
-                    NPN open-collector output; LOW = beam broken = charger connected.
+        charge_pin: BCM GPIO pin number for the SPDT limit switch (IN, PUD_DOWN).
+                    COM→3.3V, NO→GPIO; HIGH = charger connected.
     """
 
     def __init__(
@@ -51,7 +51,7 @@ class GPIODriver:
             if dock_pin is not None and not stub_sensors:
                 GPIO.setup(dock_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             if charge_pin is not None and not stub_sensors:
-                GPIO.setup(charge_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                GPIO.setup(charge_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
     def _unlock_level(self):
         return self._GPIO.HIGH if self._lock_unlocks_when_high else self._GPIO.LOW
@@ -108,9 +108,8 @@ class GPIODriver:
     def read_charge_connected(self) -> bool:
         """Return True if the charging cable is plugged in.
 
-        QT30CM IR break-beam, NPN open-collector output, internal PUD_UP.
-        LOW = beam broken = charger connected; inverted here so callers
-        see True for "connected" without knowing the hardware polarity.
+        SPDT limit switch: COM→3.3V, NO→GPIO 22, internal PUD_DOWN.
+        HIGH = switch closed = charger connected.
         In stub mode returns configured stub_charge_connected default.
         """
         if self._stub_sensors:
@@ -121,7 +120,7 @@ class GPIODriver:
             return False
 
         try:
-            return not bool(self._GPIO.input(self._charge_pin))  # LOW = beam broken = connected
+            return bool(self._GPIO.input(self._charge_pin))  # active-high
         except Exception as exc:
             logger.warning("[GPIO] read_charge_connected failed: %s", exc)
             return False

@@ -6,7 +6,7 @@
     <title>{{ station.name if station else station_id }} – GIRO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
 <body class="g-screen">
@@ -18,7 +18,11 @@
             </a>
             <span class="g-hdr-sub">Detalles de Estación</span>
         </div>
-        <span class="g-hdr-brand">GIRO</span>
+        <span class="g-hdr-brand">
+            
+            <img class="g-hdr-quetzal" src="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" alt="" />
+            <span class="g-hdr-name">GIRO</span>
+        </span>
     </header>
 
     {% include "mobile/_chrome.html" %}

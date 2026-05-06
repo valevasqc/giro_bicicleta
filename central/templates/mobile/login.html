@@ -6,7 +6,7 @@
     <title>Entrar – GIRO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='img/logo.jpg') }}" />
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile/giro.css') }}" />
 </head>
 <body>
@@ -14,7 +14,8 @@
     <div class="g-login-card g-rise">
 
         <div style="text-align:center; margin-bottom:3.5rem;">
-            <p class="g-login-logo">GIRO</p>
+            <img class="g-login-logo" src="{{ url_for('static', filename='img/giro_quetzal_red.png') }}" alt="" />
+            <p class="g-login-name">GIRO</p>
             <p class="g-login-sub">Iniciar Sesión</p>
         </div>
 
@@ -72,10 +73,9 @@
         </div>
     </div>
 
-    {# Register is mock — no backend route #}
-    <p style="margin-top:2.5rem; font-family:'Public Sans',system-ui,sans-serif; font-size:.75rem; color:rgba(74,69,65,.3);">
+    <p style="margin-top:2.5rem; font-family:'Public Sans',system-ui,sans-serif; font-size:.75rem; color:rgba(74,69,65,.55);">
         ¿Eres nuevo?
-        <span style="color:var(--primary); font-weight:900; opacity:.45;">Crea una cuenta</span>
+        <a href="{{ url_for('mobile_register_page') }}" style="color:var(--primary); font-weight:900; text-decoration:none;">Crea una cuenta</a>
     </p>
 </div>
 </body>

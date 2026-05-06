@@ -103,12 +103,9 @@ h3 {
 }
 
 .brand-logo {
-    width: 34px;
     height: 34px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #fbf3ec;
+    width: auto;
+    object-fit: contain;
 }
 
 :where(.btn, .primary-btn, .secondary-btn, .danger-btn, .start-btn) {
