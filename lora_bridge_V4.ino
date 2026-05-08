@@ -51,13 +51,13 @@ void VextON() {
   digitalWrite(VEXT, LOW);
 }
 
-// FEM-aware transmit. GPIO46 is a strapping pin — only OUTPUT during TX.
+// FEM-aware transmit. Drive CPS HIGH for TX, LOW for RX.
+// GPIO46 is a strapping pin — keep it INPUT only until setup() completes,
+// then it's safe to hold as OUTPUT for the rest of runtime.
 int transmitFEM(String& pkt) {
-  pinMode(FEM_CPS, OUTPUT);
   digitalWrite(FEM_CPS, HIGH);
   int state = radio.transmit(pkt);
   digitalWrite(FEM_CPS, LOW);
-  pinMode(FEM_CPS, INPUT);
   return state;
 }
 
@@ -123,10 +123,13 @@ void setup() {
     display.display();
   }
 
-  // FEM enable BEFORE radio init. CPS stays as INPUT (default) until first TX.
+  // FEM enable BEFORE radio init. CPS driven LOW (RX mode) immediately —
+  // strapping window is over once setup() starts, so OUTPUT is safe here.
   pinMode(FEM_CSD, OUTPUT);
   digitalWrite(FEM_CSD, HIGH);
-  Serial.println("# FEM GC1109 enabled (GPIO2=HIGH)");
+  pinMode(FEM_CPS, OUTPUT);
+  digitalWrite(FEM_CPS, LOW);
+  Serial.println("# FEM GC1109 enabled (GPIO2=HIGH CPS=LOW/RX)");
 
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_NSS);
 

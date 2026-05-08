@@ -404,13 +404,10 @@ def station_return_confirm():
         gpio = current_app.extensions.get("gpio")
         if gpio is not None:
             dock_ok   = gpio.read_dock_occupied()
-            charge_ok = gpio.read_charge_connected()
-            if not dock_ok or not charge_ok:
-                if not dock_ok:
-                    err = "La bicicleta no está en el andén. Encájala y vuelve a confirmar."
-                else:
-                    err = "El cargador no está conectado. Conecta el cargador y vuelve a confirmar."
-                logger.warning("[KIOSK] return_confirm blocked — dock=%s charge=%s", dock_ok, charge_ok)
+            # charge_ok = gpio.read_charge_connected()  # charger switch disabled
+            if not dock_ok:
+                err = "La bicicleta no está en el andén. Encájala y vuelve a confirmar."
+                logger.warning("[KIOSK] return_confirm blocked — dock=%s", dock_ok)
                 return render_template(
                     "kiosk/return_confirm.html",
                     station_name=STATION_NAME,
@@ -464,13 +461,10 @@ def station_complete_return():
     gpio = current_app.extensions.get("gpio")
     if gpio is not None:
         dock_ok   = gpio.read_dock_occupied()
-        charge_ok = gpio.read_charge_connected()
-        if not dock_ok or not charge_ok:
-            if not dock_ok:
-                err = "La bicicleta no está en el andén. Encájala correctamente y vuelve a intentarlo."
-            else:
-                err = "El cargador no está conectado. Conecta el cargador y vuelve a intentarlo."
-            logger.warning("[KIOSK] complete_return blocked — dock=%s charge=%s", dock_ok, charge_ok)
+        # charge_ok = gpio.read_charge_connected()  # charger switch disabled
+        if not dock_ok:
+            err = "La bicicleta no está en el andén. Encájala correctamente y vuelve a intentarlo."
+            logger.warning("[KIOSK] complete_return blocked — dock=%s", dock_ok)
             return render_template(
                 "kiosk/complete_error.html",
                 station_id=STATION_ID,
