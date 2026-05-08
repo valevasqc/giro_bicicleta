@@ -178,7 +178,8 @@ class LoRaReceiver:
 
         station_id = fields[0].strip()
         dock_occupied = _to_int01(fields[1])
-        power_connected = _to_int01(fields[2])
+        # charger switch removed — mirror dock for admin display
+        power_connected = dock_occupied
         heartbeat_time = _utc_iso()
 
         with get_connection() as conn:

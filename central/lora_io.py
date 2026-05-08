@@ -115,7 +115,7 @@ def send(message: str) -> bool:
                 with _stub_out.open("a", encoding="utf-8") as fh:
                     fh.write(line)
                     fh.flush()
-            logger.debug("[LORA IO STUB ->] %s", line.rstrip())
+            logger.info("[LORA IO STUB ->] %s", line.rstrip())
             return True
         if _serial is None or not _serial.is_open:
             logger.warning("[LORA IO] no connection — dropping: %s", line.rstrip())

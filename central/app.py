@@ -1377,7 +1377,10 @@ def start_rental():
     lora_sender = app.extensions.get("lora_sender")
     if lora_sender:
         approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, session_user["user_id"], utc_iso(utc_now()))
-        lora_sender.send(approved_msg)
+        ok = lora_sender.send(approved_msg)
+        logger.info("[RENTAL] RENTAL_APPROVED send ok=%s msg=%r", ok, approved_msg)
+    else:
+        logger.warning("[RENTAL] no lora_sender in app.extensions — unlock skipped")
 
     safe_log_event(
         source=station_id,
@@ -1900,8 +1903,8 @@ def station_heartbeat():
                 "reason": "invalid_station"
             }), 400
 
-        # Fall back to current DB value if the field was not included in the heartbeat.
-        power_connected = power_connected_val if power_connected_val is not None else station["power_connected"]
+        # charger switch removed — mirror dock for admin display
+        power_connected = dock_occupied
         lock_confirmed = lock_confirmed_val if lock_confirmed_val is not None else station["lock_confirmed"]
 
         conn.execute(

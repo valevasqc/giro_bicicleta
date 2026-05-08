@@ -66,7 +66,7 @@ class GPIODriver:
         In stub mode always returns True.
         """
         if self._stub_lock:
-            logger.debug("[GPIO STUB] unlock_for_seconds(%ss) on LOCK_PIN=%s", duration, self._lock_pin)
+            logger.info("[GPIO STUB] unlock_for_seconds(%ss) on LOCK_PIN=%s", duration, self._lock_pin)
             return True
 
         if self._lock_pin is None:
