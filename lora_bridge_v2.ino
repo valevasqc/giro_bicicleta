@@ -1,19 +1,32 @@
+// lora_bridge_heltec_v2.ino — Heltec WiFi LoRa 32 V2 (SX1276 + OLED) serial bridge.
+//   - PA_BOOST forced via setOutputPower(20, false). Heltec V2 only wires PA_BOOST.
+// Serial protocol identical to V4 bridge: READY / ERROR|INIT|<code> / raw payload / # comments.
+
 #include <RadioLib.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// --- OLED (Heltec LoRa32 V4) ---
-#define OLED_SDA 17
-#define OLED_SCL 18
-#define OLED_RST 21
-#define VEXT 36
+// --- OLED (Heltec LoRa32 V2) ---
+#define OLED_SDA 4
+#define OLED_SCL 15
+#define OLED_RST 16
+#define VEXT     21
+
+// --- LoRa SX1276 ---
+#define LORA_SCK  5
+#define LORA_MISO 19
+#define LORA_MOSI 27
+#define LORA_NSS  18
+#define LORA_DIO0 26
+#define LORA_RST  14
+#define LORA_DIO1 35
 
 Adafruit_SSD1306 display(128, 64, &Wire, OLED_RST);
 bool displayOk = false;
 
-// --- LoRa (SX1262) ---
-SX1262 radio = new Module(8, 14, 12, 13);
+// SX1276: Module(cs, irq, rst, gpio)
+SX1276 radio = new Module(LORA_NSS, LORA_DIO0, LORA_RST, LORA_DIO1);
 bool radioOk = false;
 volatile bool receivedFlag = false;
 
@@ -66,19 +79,20 @@ void setup() {
   Serial.begin(115200);
   delay(1500);
 
-  // Power the OLED first
+  // Power OLED rail
   VextON();
-  delay(100);
+  delay(200);
+
+  // V2 needs an explicit OLED reset pulse
+  pinMode(OLED_RST, OUTPUT);
+  digitalWrite(OLED_RST, LOW);  delay(50);
+  digitalWrite(OLED_RST, HIGH); delay(50);
 
   Wire.begin(OLED_SDA, OLED_SCL);
-  Wire.setTimeOut(50);  // don't hang forever if OLED isn't present
+  Wire.setTimeOut(50);
   delay(50);
 
-  // Probe for the OLED before calling display.begin(). A dead/broken panel
-  // on a board where VextON() just powered it up can hang display.begin()
-  // indefinitely despite Wire.setTimeOut — it does many transactions and
-  // the Adafruit library doesn't check return values. One beginTransmission
-  // is bounded and returns non-zero fast if the device doesn't ACK 0x3C.
+  // Probe before display.begin() to avoid hang on missing/dead OLED.
   Wire.beginTransmission(0x3C);
   uint8_t probe = Wire.endTransmission();
   if (probe != 0) {
@@ -97,15 +111,19 @@ void setup() {
     display.display();
   }
 
-  SPI.begin(9, 11, 10, 8);
-  int state = radio.begin(915.0, 125.0, 9, 7, 0x12, 22);
+  SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_NSS);
+
+  // 915 MHz / BW125 / SF9 / CR4/7 / sync 0x12 / 17 dBm placeholder / preamble 8 / gain auto
+  int state = radio.begin(915.0, 125.0, 9, 7, 0x12, 17, 8, 0);
   if (state == RADIOLIB_ERR_NONE) {
-    radio.setDio2AsRfSwitch(true);
+    // Force PA_BOOST output (false = useRfo=false → PA_BOOST). V2 only wires PA_BOOST.
+    radio.setOutputPower(20, false);
+    // RX gain stays at AGC default — adapts across distance.
     radio.setPacketReceivedAction(setFlag);
     radioOk = true;
     radio.startReceive();
     Serial.println("READY");
-    Serial.println("# 915MHz BW=125 SF=9 CR=7 sync=0x12 pwr=22dBm");
+    Serial.println("# 915MHz BW=125 SF=9 CR=7 sync=0x12 pwr=20dBm PA_BOOST");
     updateDisplay("READY 915MHz SF9");
   } else {
     Serial.print("ERROR|INIT|");
@@ -126,9 +144,6 @@ void loop() {
       radio.clearPacketReceivedAction();
       int state = radio.transmit(line);
 
-      // Re-enter RX mode BEFORE the display update — updateDisplay() does
-      // I2C writes that can be slow (or hang on a missing OLED), and any
-      // reply packet that arrives during that window would be lost.
       radio.setPacketReceivedAction(setFlag);
       radio.startReceive();
 

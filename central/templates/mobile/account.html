@@ -113,9 +113,22 @@
                 Miembro desde {{ member_since }}
             </p>
 
+            {% if error_message %}
+            <p class="g-err" style="margin-bottom:1rem;text-align:center;">{{ error_message }}</p>
+            {% endif %}
+
             <!-- logout -->
             <form method="post" action="{{ url_for('mobile_logout_page') }}">
                 <button type="submit" class="g-btn g-btn-ghost">Cerrar sesión</button>
+            </form>
+
+            <!-- delete account -->
+            <form method="post" action="{{ url_for('mobile_delete_account') }}" style="margin-top:.75rem;"
+                  onsubmit="return confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.')">
+                <button type="submit" class="g-btn g-btn-ghost"
+                        style="color:var(--error);border-color:var(--error);opacity:.7;">
+                    Eliminar cuenta
+                </button>
             </form>
 
         </main>

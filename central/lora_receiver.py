@@ -53,6 +53,9 @@ try:
         HEARTBEAT,
         LOGIN_FAIL,
         LOGIN_OK,
+        REGISTER_FAIL,
+        REGISTER_OK,
+        REGISTER_REQUEST,
         RENTAL_APPROVED,
         RENTAL_DENIED,
         RENTAL_REQUEST,
@@ -73,6 +76,9 @@ except ImportError:
         HEARTBEAT,
         LOGIN_FAIL,
         LOGIN_OK,
+        REGISTER_FAIL,
+        REGISTER_OK,
+        REGISTER_REQUEST,
         RENTAL_APPROVED,
         RENTAL_DENIED,
         RENTAL_REQUEST,
@@ -84,7 +90,7 @@ except ImportError:
         parse_message,
     )
 
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +162,8 @@ class LoRaReceiver:
                 self._handle_gps(fields)
             elif msg_type == TOPUP_REQUEST:
                 self._handle_topup_request(fields)
+            elif msg_type == REGISTER_REQUEST:
+                self._handle_register_request(fields)
             else:
                 logger.debug("[LORA] ignoring central-bound or unknown type: %s", msg_type)
         except Exception as exc:
@@ -596,6 +604,64 @@ class LoRaReceiver:
             time.sleep(2)
             logger.info("[LORA] TOPUP_FAIL → %s (attempt 2)", station_id)
             self._sender.send(fail_msg)
+
+    def _handle_register_request(self, fields) -> None:
+        # REGISTER_REQUEST|station_id|name|username|email|password|ts
+        if len(fields) < 5:
+            logger.warning("[LORA] REGISTER_REQUEST: expected ≥5 fields, got %d", len(fields))
+            return
+
+        station_id = fields[0].strip()
+        name = fields[1].strip()
+        username = fields[2].strip()
+        email = fields[3].strip()
+        password = fields[4]  # do not strip
+
+        def reg_fail(reason: str) -> None:
+            logger.info("[LORA] REGISTER_FAIL → %s: %s", station_id, reason)
+            msg = format_message(REGISTER_FAIL, station_id, reason, _utc_iso())
+            self._sender.send(msg)
+            time.sleep(2)
+            self._sender.send(msg)
+
+        if not name or not username or not email or not password:
+            reg_fail("missing_fields")
+            return
+
+        with get_connection() as conn:
+            existing = conn.execute(
+                "SELECT user_id FROM users WHERE username = ?", (username,)
+            ).fetchone()
+            if existing:
+                reg_fail("username_taken")
+                return
+
+            new_user_id = str(uuid4())
+            password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO users (user_id, username, name, email, password_hash, role, is_active, balance)
+                    VALUES (?, ?, ?, ?, ?, 'customer', 1, 0.0)
+                    """,
+                    (new_user_id, username, name, email, password_hash),
+                )
+                conn.commit()
+            except Exception:
+                logger.exception("[LORA] REGISTER_REQUEST: DB insert failed for %r", username)
+                reg_fail("server_error")
+                return
+
+        logger.info("[LORA] REGISTER_OK → %s  user=%r id=%s", station_id, username, new_user_id)
+        ok_msg = format_message(REGISTER_OK, station_id, _utc_iso())
+        self._sender.send(ok_msg)
+        time.sleep(2)
+        self._sender.send(ok_msg)
+        self._safe_log_event(
+            source=station_id,
+            event_type="USER_REGISTERED",
+            payload={"user_id": new_user_id, "username": username},
+        )
 
     def _handle_gps(self, fields) -> None:
         # GPS|bike_id|unix_ts|lat|lon

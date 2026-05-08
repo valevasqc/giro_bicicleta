@@ -66,7 +66,7 @@ STUB_LORA_INBOUND = STUB_LORA_DIR / "to_central.log"
 STUB_LORA_OUTBOUND = STUB_LORA_DIR / "to_station.log"
 
 # Real pyserial settings (ignored when STUB_LORA is true).
-LORA_PORT = "/dev/cu.usbmodem101"
+LORA_PORT = os.getenv("LORA_PORT", "/dev/cu.usbmodem101")
 LORA_SERIAL_PORT = LORA_PORT
 LORA_BAUD_RATE = int(os.getenv("LORA_BAUD_RATE", "115200"))
 

@@ -75,6 +75,12 @@
       Al confirmar, se autorizará el cobro en tu cuenta. El monto final se calcula al terminar el viaje.
     </div>
 
+    <div style="font-family:'Public Sans',sans-serif;font-size:10px;color:var(--on-v40);line-height:1.55;text-align:center;padding:2px 0;">
+      Al continuar, aceptas los
+      <a href="{{ url_for('kiosk.station_terms') }}" style="color:var(--primary);font-weight:700;text-decoration:underline;">Términos y Condiciones</a>
+      del servicio. GIRO no se responsabiliza por lesiones derivadas del uso inadecuado de la bicicleta.
+    </div>
+
     <form method="post" id="auth-form">
       <button type="submit" id="auth-btn" class="btn-primary red" style="width:100%;height:58px;font-size:16px;">
         Autorizar y desbloquear

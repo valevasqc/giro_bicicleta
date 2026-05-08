@@ -40,6 +40,9 @@ try:
         BIKE_RELEASED,
         LOGIN_FAIL,
         LOGIN_OK,
+        REGISTER_FAIL,
+        REGISTER_OK,
+        REGISTER_REQUEST,
         RENTAL_APPROVED,
         RENTAL_DENIED,
         RENTAL_REQUEST,
@@ -58,6 +61,9 @@ except ImportError:  # fallback if someone runs station directly
         BIKE_RELEASED,
         LOGIN_FAIL,
         LOGIN_OK,
+        REGISTER_FAIL,
+        REGISTER_OK,
+        REGISTER_REQUEST,
         RENTAL_APPROVED,
         RENTAL_DENIED,
         RENTAL_REQUEST,
@@ -110,6 +116,9 @@ def _reason_to_human(reason: str) -> str:
         "invalid_code": "Código no válido. Revisa el código e intenta de nuevo.",
         "already_redeemed": "Este código ya fue utilizado.",
         "invalid_session": "Tu sesión expiró. Inicia sesión nuevamente.",
+        "username_taken": "Ese nombre de usuario ya está en uso.",
+        "missing_fields": "Todos los campos son obligatorios.",
+        "server_error": "Error interno. Intenta de nuevo.",
     }
     return mapping.get(reason, "Ocurrió un error inesperado. Intenta de nuevo.")
 
@@ -652,6 +661,121 @@ def station_topup_result():
 
 
 # ---------------------------------------------------------------------
+# Account registration
+# ---------------------------------------------------------------------
+
+@bp.route("/station/register", methods=["GET", "POST"], endpoint="station_register")
+def station_register():
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        username = (request.form.get("username") or "").strip()
+        email = (request.form.get("email") or "").strip()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("confirm_password") or ""
+
+        form_values = {"name": name, "username": username, "email": email}
+
+        if not name or not username or not email or not password:
+            return render_template(
+                "kiosk/register.html",
+                station_id=STATION_ID,
+                error_message=_reason_to_human("missing_fields"),
+                form_values=form_values,
+            )
+        if len(password) < 8:
+            return render_template(
+                "kiosk/register.html",
+                station_id=STATION_ID,
+                error_message="La clave debe tener al menos 8 caracteres.",
+                form_values=form_values,
+            )
+        if password != confirm:
+            return render_template(
+                "kiosk/register.html",
+                station_id=STATION_ID,
+                error_message="Las claves no coinciden.",
+                form_values=form_values,
+            )
+        if "|" in name or "|" in username or "|" in email or "|" in password:
+            return render_template(
+                "kiosk/register.html",
+                station_id=STATION_ID,
+                error_message="Los datos no pueden contener el carácter '|'.",
+                form_values=form_values,
+            )
+
+        for mt in (REGISTER_OK, REGISTER_FAIL):
+            state.take_inbound(mt)
+
+        state.set_pending("register", {"username": username})
+        msg = format_message(REGISTER_REQUEST, STATION_ID, name, username, email, password, _utc_iso())
+        logger.info("[KIOSK] sending REGISTER_REQUEST for user=%r", username)
+        _lora_send(msg)
+        return redirect(url_for("kiosk.station_register_result"))
+
+    return render_template(
+        "kiosk/register.html",
+        station_id=STATION_ID,
+        error_message=None,
+        form_values={},
+    )
+
+
+@bp.route("/station/register-result", methods=["GET"], endpoint="station_register_result")
+def station_register_result():
+    ok = state.peek_inbound(REGISTER_OK)
+    fail = state.peek_inbound(REGISTER_FAIL)
+
+    if ok:
+        state.take_inbound(REGISTER_OK)
+        state.clear_pending()
+        pending = state.get_pending()
+        username = (pending or {}).get("username", "")
+        return render_template(
+            "kiosk/register.html",
+            station_id=STATION_ID,
+            error_message=None,
+            form_values={},
+            success_message="¡Cuenta creada! Ya puedes iniciar sesión.",
+        )
+
+    if fail:
+        state.take_inbound(REGISTER_FAIL)
+        state.clear_pending()
+        fields = fail["fields"]
+        reason = fields[1] if len(fields) > 1 else "server_error"
+        return render_template(
+            "kiosk/register.html",
+            station_id=STATION_ID,
+            error_message=_reason_to_human(reason),
+            form_values={},
+        )
+
+    pending = state.get_pending()
+    if pending is None:
+        return render_template(
+            "kiosk/register.html",
+            station_id=STATION_ID,
+            error_message=_reason_to_human("timeout"),
+            form_values={},
+        )
+
+    return _render_waiting(
+        kind="register",
+        result_url=url_for("kiosk.station_register_result"),
+    )
+
+
+# ---------------------------------------------------------------------
+# Terms & Conditions
+# ---------------------------------------------------------------------
+
+@bp.route("/station/terms", methods=["GET"], endpoint="station_terms")
+def station_terms():
+    return render_template("kiosk/terms.html", station_name=STATION_NAME)
+
+
+# ---------------------------------------------------------------------
 # Logout / status / error
 # ---------------------------------------------------------------------
 
@@ -733,6 +857,11 @@ def station_status():
             return jsonify({"pending": False, "outcome": "topup_ok"})
         if _has(TOPUP_FAIL):
             return jsonify({"pending": False, "outcome": "topup_fail"})
+    elif kind == "register":
+        if _has(REGISTER_OK):
+            return jsonify({"pending": False, "outcome": "register_ok"})
+        if _has(REGISTER_FAIL):
+            return jsonify({"pending": False, "outcome": "register_fail"})
 
     if age > LORA_REPLY_TIMEOUT_SECONDS:
         state.clear_pending()

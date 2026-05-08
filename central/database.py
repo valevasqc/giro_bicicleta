@@ -34,6 +34,8 @@ def _migrate(conn):
     user_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
     if "balance" not in user_cols:
         conn.execute("ALTER TABLE users ADD COLUMN balance REAL NOT NULL DEFAULT 0")
+    if "email" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
 
 
 def fetch_one(query, params=()):

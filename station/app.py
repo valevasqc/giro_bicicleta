@@ -83,7 +83,7 @@ def create_app() -> Flask:
     sender = LoRaSender()
     app.extensions["lora_sender"] = sender
 
-    receiver = LoRaReceiver()
+    receiver = LoRaReceiver(gpio=gpio, sender=sender)
     receiver.start()
     app.extensions["lora_receiver"] = receiver
 

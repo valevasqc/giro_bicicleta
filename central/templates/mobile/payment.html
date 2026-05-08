@@ -166,6 +166,17 @@
         <p class="g-err g-mb">{{ error_message }}</p>
         {% endif %}
 
+        {# ── T&C notice ──────────────────────────────────────── #}
+        <p style="font-family:'Public Sans',system-ui,sans-serif; font-size:.65rem; font-weight:600;
+                   color:var(--on-variant-40); text-align:center; line-height:1.6; margin:.25rem 0 .1rem;">
+            Al confirmar, aceptas los
+            <a href="{{ url_for('mobile_terms_page') }}" target="_blank"
+               style="color:var(--primary); font-weight:800; text-decoration:underline;">
+                Términos y Condiciones
+            </a>
+            del servicio.
+        </p>
+
         {# ── confirm button ──────────────────────────────────── #}
         <form method="POST" action="{{ url_for('mobile_payment_page') }}" id="payForm">
             <button type="submit" class="g-btn g-btn-primary" id="payBtn">

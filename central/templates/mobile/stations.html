@@ -186,6 +186,7 @@
         /* ── map toggle ── */
         var mapInitialized = false;
         var leafletMap = null;
+        var watchId = null;
 
         document.getElementById('mapToggleBtn').addEventListener('click', function () {
             document.body.classList.toggle('map-mode');
@@ -194,8 +195,13 @@
             if (inMap && !mapInitialized) {
                 initMap();
                 mapInitialized = true;
+                startUserLocation();
             } else if (inMap && leafletMap) {
                 leafletMap.invalidateSize();
+                if (watchId === null) startUserLocation();
+            } else if (!inMap && watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
             }
         });
 
@@ -258,7 +264,65 @@
                     .bindPopup(popupHtml, { maxWidth: 220 });
             });
 
+            /* ── locate-me button ── */
+            var LocateBtn = L.Control.extend({
+                options: { position: 'bottomleft' },
+                onAdd: function () {
+                    var btn = L.DomUtil.create('button');
+                    btn.title = 'Mi ubicación';
+                    btn.style.cssText = 'width:42px;height:42px;background:#fff;border:2px solid rgba(0,0,0,.18);' +
+                        'border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;' +
+                        'box-shadow:0 2px 8px rgba(0,0,0,.18);padding:0;';
+                    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A90D9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+                        '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>' +
+                        '<circle cx="12" cy="12" r="9" stroke-dasharray="2 3"/></svg>';
+                    L.DomEvent.on(btn, 'click', function (e) {
+                        L.DomEvent.stopPropagation(e);
+                        if (userMarker) {
+                            leafletMap.setView(userMarker.getLatLng(), 17, { animate: true });
+                        } else {
+                            navigator.geolocation && navigator.geolocation.getCurrentPosition(function (pos) {
+                                leafletMap.setView([pos.coords.latitude, pos.coords.longitude], 17, { animate: true });
+                            });
+                        }
+                    });
+                    return btn;
+                }
+            });
+            new LocateBtn().addTo(leafletMap);
+
             leafletMap.invalidateSize();
+        }
+
+        /* ── user location (client-side only, never sent to server) ── */
+        var userMarker = null;
+        var userRing   = null;
+
+        function startUserLocation() {
+            if (!navigator.geolocation || !leafletMap) return;
+            var firstFix = true;
+            watchId = navigator.geolocation.watchPosition(function (pos) {
+                var ll = [pos.coords.latitude, pos.coords.longitude];
+                if (!userMarker) {
+                    userRing = L.circleMarker(ll, {
+                        radius: 14, color: '#4A90D9', weight: 2,
+                        fillColor: '#4A90D9', fillOpacity: 0.18,
+                        interactive: false
+                    }).addTo(leafletMap);
+                    userMarker = L.circleMarker(ll, {
+                        radius: 7, color: '#fff', weight: 2.5,
+                        fillColor: '#4A90D9', fillOpacity: 1,
+                        interactive: false
+                    }).addTo(leafletMap);
+                } else {
+                    userMarker.setLatLng(ll);
+                    userRing.setLatLng(ll);
+                }
+                if (firstFix) {
+                    leafletMap.setView(ll, 17, { animate: true });
+                    firstFix = false;
+                }
+            }, null, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
         }
 
     })();

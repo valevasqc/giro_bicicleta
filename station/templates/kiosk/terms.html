@@ -1,0 +1,92 @@
+{% extends "screens/base.html" %}
+{% block title %}Términos y Condiciones — Giro{% endblock %}
+
+{% block content %}
+<div class="kv2-split">
+
+  <!-- Left panel -->
+  <div class="kv2-left">
+    <div class="lp-logo">
+      <img src="{{ url_for('static', filename='img/giro_quetzal_white.png') }}" alt="Giro"/>
+      <div><div class="lp-name">GIRO</div><div class="lp-sub">Bicicleta</div></div>
+    </div>
+    <div class="lp-station">
+      <div class="lp-label">Estación</div>
+      <div class="lp-sname">{{ station_name }}</div>
+    </div>
+    <div class="lp-spacer"></div>
+    <div style="font-family:'Public Sans',sans-serif;font-size:8px;color:rgba(255,255,255,.2);font-weight:600;line-height:1.5;margin-bottom:12px;text-align:center;">
+      Al rentar, aceptas estos términos en su totalidad.
+    </div>
+    <a href="javascript:history.back()" class="btn-secondary" style="width:100%;">← Volver al pago</a>
+  </div>
+
+  <!-- Right panel: scrollable terms -->
+  <div class="kv2-right" style="overflow-y:auto;justify-content:flex-start;padding:20px 26px 20px 24px;gap:0;">
+
+    <div class="c-eyebrow" style="margin-bottom:6px;">Legal</div>
+    <div class="c-title" style="font-size:24px;margin-bottom:14px;">
+      Términos y <span class="accent">Condiciones</span>
+    </div>
+
+    <div style="font-family:'Public Sans',sans-serif;font-size:10.5px;color:var(--on-v);line-height:1.65;display:flex;flex-direction:column;gap:9px;">
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">1. Aceptación del servicio</span><br>
+        Al iniciar un viaje con GIRO, el usuario declara haber leído, comprendido y aceptado estos Términos y Condiciones en su totalidad.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">2. Condición del vehículo</span><br>
+        La bicicleta se entrega en condiciones operativas adecuadas. El usuario debe inspeccionarla visualmente antes de retirarla y reportar cualquier anomalía a través de la aplicación o kiosk antes de iniciar el viaje.
+      </div>
+
+      <div style="background:rgba(162,37,34,.06);border-left:3px solid var(--primary);border-radius:6px;padding:8px 10px;">
+        <span style="font-weight:800;color:var(--primary);">3. Exención de responsabilidad por lesiones</span><br>
+        <strong>GIRO Bicicleta no se hace responsable por lesiones, daños físicos o accidentes</strong> derivados del uso inadecuado, imprudente, negligente o contrario a las normas de tránsito por parte del usuario, siempre que la bicicleta haya sido entregada en buen estado operativo. El usuario asume plena responsabilidad sobre su seguridad durante el viaje.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">4. Seguridad personal</span><br>
+        Se recomienda el uso de casco y equipo de protección en todo momento. GIRO no provee equipo de seguridad. El usuario asume expresamente el riesgo de conducir sin protección adecuada.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">5. Usos prohibidos</span><br>
+        Está prohibido conducir bajo efectos de alcohol o sustancias psicoactivas, prestar o subarrendar la bicicleta a terceros, realizar modificaciones al vehículo, y utilizarlo fuera del área geográfica autorizada por GIRO.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">6. Responsabilidad por daños</span><br>
+        El usuario es responsable por cualquier daño causado a la bicicleta durante el período de renta, ya sea por accidente, descuido o mal uso. GIRO se reserva el derecho de cobrar los costos de reparación al usuario.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">7. Tarifas y cobros</span><br>
+        La tarifa se calcula por minuto de uso a partir del momento del desbloqueo. Aplica un cargo mínimo por viaje. No se realizan reembolsos una vez iniciado el viaje.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">8. Devolución</span><br>
+        La bicicleta debe devolverse correctamente en una estación habilitada de GIRO, con el cable de carga conectado y el candado asegurado. El usuario es responsable de la bicicleta hasta que el sistema confirme la devolución.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">9. Privacidad y GPS</span><br>
+        GIRO recopila datos de ubicación GPS durante el viaje únicamente para fines de seguridad y operación del sistema. Los datos no son compartidos con terceros sin consentimiento del usuario.
+      </div>
+
+      <div>
+        <span style="font-weight:800;color:var(--on-s);">10. Modificaciones</span><br>
+        GIRO se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento. El uso continuado del servicio implica la aceptación de los cambios.
+      </div>
+
+      <div style="border-top:1px solid var(--on-v10);padding-top:8px;font-size:9.5px;color:var(--on-v40);font-weight:600;text-align:center;">
+        GIRO Bicicleta — Estos términos aplican a partir del momento de desbloqueo de la bicicleta.
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

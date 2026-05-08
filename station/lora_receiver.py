@@ -17,27 +17,26 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 try:
-    from common.lora_protocol import parse_message
+    from common.lora_protocol import parse_message, RENTAL_APPROVED
 except ImportError:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from common.lora_protocol import parse_message
+    from common.lora_protocol import parse_message, RENTAL_APPROVED
 
 try:
     from . import lora_io
     from . import state
-    from .config import STATION_ID
+    from .config import STATION_ID, UNLOCK_DURATION_SECONDS
 except ImportError:
     import lora_io
     import state
-    from config import STATION_ID
+    from config import STATION_ID, UNLOCK_DURATION_SECONDS
 
 
 class LoRaReceiver:
-    def __init__(self, **_kwargs):
-        # Accept and ignore any legacy keyword args (stub, stub_path, etc.)
-        # so existing call-sites that pass them do not break.
-        pass
+    def __init__(self, gpio=None, sender=None, **_kwargs):
+        self._gpio = gpio
+        self._sender = sender
 
     def start(self) -> None:
         """Register _handle_line with lora_io and start the read thread."""
@@ -62,4 +61,23 @@ class LoRaReceiver:
         if not fields or fields[0] != STATION_ID:
             return
         logger.info("[LORA <- central] %s %s", msg_type, fields)
-        state.record_inbound(msg_type, fields)
+
+        if msg_type == RENTAL_APPROVED:
+            self._handle_rental_approved(fields)
+        else:
+            state.record_inbound(msg_type, fields)
+
+    def _handle_rental_approved(self, fields) -> None:
+        state.record_inbound(RENTAL_APPROVED, fields)
+
+        pending = state.get_pending()
+        if pending and pending.get("kind") == "login":
+            # Kiosk flow: kiosk UI is waiting for this, it will handle the unlock.
+            logger.info("[LORA] RENTAL_APPROVED → kiosk flow, deferring unlock to kiosk UI")
+            return
+
+        # Mobile flow: no kiosk session waiting — auto-unlock the dock now.
+        logger.info("[LORA] RENTAL_APPROVED → mobile flow, auto-unlocking dock")
+        if self._gpio is not None:
+            self._gpio.unlock_for_seconds(UNLOCK_DURATION_SECONDS)
+        state.set_dock_occupied(False)

@@ -12,6 +12,7 @@ try:
     from .lora_receiver import LoRaReceiver
     from .lora_sender import LoRaSender
     from . import lora_io
+    from common.lora_protocol import format_message, RENTAL_APPROVED
     from .config import (
         SECRET_KEY,
         CENTRAL_HTTP_HOST,
@@ -39,6 +40,7 @@ except ImportError:
     from lora_receiver import LoRaReceiver
     from lora_sender import LoRaSender
     import lora_io
+    from common.lora_protocol import format_message, RENTAL_APPROVED
     from config import (
         SECRET_KEY,
         CENTRAL_HTTP_HOST,
@@ -346,6 +348,11 @@ def complete_with_station_service_retry(bike_id, station_id=None, power_connecte
     )
 
 
+@app.route("/mobile/terms")
+def mobile_terms_page():
+    return render_template("mobile/terms.html")
+
+
 @app.route("/mobile")
 def mobile_home_page():
     # TODO: Mobile flow should eventually use phone GPS (or user-entered location) to suggest nearby stations.
@@ -418,6 +425,40 @@ def mobile_logout_page():
     return redirect(url_for("mobile_home_page"))
 
 
+@app.route("/mobile/delete-account", methods=["POST"])
+def mobile_delete_account():
+    mobile_auth = get_mobile_customer_session()
+    if not mobile_auth:
+        return redirect(url_for("mobile_login_page"))
+
+    user_id = mobile_auth["user_id"]
+    token = mobile_auth.get("token")
+
+    with get_connection() as conn:
+        active_rental = conn.execute(
+            "SELECT rental_id FROM rentals WHERE user_id = ? AND status = 'active'",
+            (user_id,),
+        ).fetchone()
+
+        if active_rental:
+            return redirect(url_for("mobile_account_page", error="active_rental"))
+
+        conn.execute("UPDATE users SET is_active = 0 WHERE user_id = ?", (user_id,))
+        conn.execute("UPDATE sessions SET is_active = 0 WHERE user_id = ?", (user_id,))
+        conn.commit()
+
+    log_event("SYSTEM", "USER_DELETED", {"user_id": user_id})
+
+    try:
+        if token:
+            call_internal_api("POST", "/api/auth/logout", token=token)
+    except Exception:
+        pass
+
+    clear_mobile_session_data()
+    return redirect(url_for("mobile_home_page"))
+
+
 @app.route("/mobile/register", methods=["GET", "POST"])
 def mobile_register_page():
     if get_mobile_customer_session():
@@ -429,13 +470,16 @@ def mobile_register_page():
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         username = (request.form.get("username") or "").strip()
+        email = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
         confirm = request.form.get("confirm_password") or ""
 
-        form_values = {"name": name, "username": username}
+        form_values = {"name": name, "username": username, "email": email}
 
-        if not name or not username or not password:
+        if not name or not username or not email or not password:
             error_message = "Todos los campos son obligatorios."
+        elif "@" not in email or "." not in email.split("@")[-1]:
+            error_message = "Ingresa un correo electrónico válido."
         elif len(password) < 8:
             error_message = "La clave debe tener al menos 8 caracteres."
         elif password != confirm:
@@ -450,18 +494,18 @@ def mobile_register_page():
                 error_message = "Ese nombre de usuario ya está en uso."
             else:
                 new_user_id = str(uuid4())
-                password_hash = generate_password_hash(password)
+                password_hash = generate_password_hash(password, method="pbkdf2:sha256")
                 try:
                     with get_connection() as conn:
                         conn.execute(
                             """
-                            INSERT INTO users (user_id, username, name, password_hash, role, is_active, balance)
-                            VALUES (?, ?, ?, ?, 'customer', 1, 0.0)
+                            INSERT INTO users (user_id, username, name, email, password_hash, role, is_active, balance)
+                            VALUES (?, ?, ?, ?, ?, 'customer', 1, 0.0)
                             """,
-                            (new_user_id, username, name, password_hash),
+                            (new_user_id, username, name, email, password_hash),
                         )
                         conn.commit()
-                    log_event("SYSTEM", "USER_REGISTERED", {"user_id": new_user_id, "username": username})
+                    log_event("SYSTEM", "USER_REGISTERED", {"user_id": new_user_id, "username": username, "email": email})
                 except Exception:
                     logger.exception("Failed to insert new user %s", username)
                     error_message = "Error al crear la cuenta. Intenta de nuevo."
@@ -1329,9 +1373,11 @@ def start_rental():
 
         conn.commit()
 
-    # Hardware unlock now happens on the station Pi when it receives
-    # RENTAL_APPROVED over LoRa. Mobile-web rentals rely on the user
-    # walking up to the kiosk; the unlock fires there, not here.
+    # Tell the station to physically unlock the dock.
+    lora_sender = app.extensions.get("lora_sender")
+    if lora_sender:
+        approved_msg = format_message(RENTAL_APPROVED, station_id, bike_id, session_user["user_id"], utc_iso(utc_now()))
+        lora_sender.send(approved_msg)
 
     safe_log_event(
         source=station_id,
@@ -2020,6 +2066,11 @@ def mobile_account_page():
         except Exception:
             pass
 
+    error = request.args.get("error")
+    error_message = None
+    if error == "active_rental":
+        error_message = "No puedes eliminar tu cuenta mientras tienes un viaje activo."
+
     return render_template(
         "mobile/account.html",
         customer_name=mobile_auth.get("name") or "Cliente",
@@ -2030,6 +2081,7 @@ def mobile_account_page():
         total_km=total_km,
         weekly=weekly,
         active_tab="account",
+        error_message=error_message,
     )
 
 
