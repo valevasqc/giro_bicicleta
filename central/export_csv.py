@@ -9,7 +9,6 @@ Output files are written next to this script (central/).
 
 import csv
 from pathlib import Path
-from typing import Optional
 
 from config import DB_PATH
 from database import get_connection
@@ -17,31 +16,11 @@ from database import get_connection
 OUT_DIR = Path(__file__).resolve().parent
 
 
-def export_rentals(out_path: Path, limit: Optional[int] = None) -> int:
-    """Write rentals.csv. Returns number of rows written.
-
-    If *limit* is given, only the most recent *limit* rows are written
-    (ordered by start_time DESC then reversed so the file is still
-    chronological).
-    """
-    if limit is not None:
-        query = f"""
-            SELECT
-                r.rental_id,
-                u.username          AS user,
-                r.start_station_id  AS start_station,
-                r.end_station_id    AS end_station,
-                r.start_time,
-                r.end_time,
-                r.duration_minutes  AS duration_min,
-                r.simulated_cost    AS cost_gtq
-            FROM rentals r
-            JOIN users u ON u.user_id = r.user_id
-            ORDER BY r.start_time DESC
-            LIMIT {int(limit)}
-        """
-    else:
-        query = """
+def export_rentals(out_path: Path) -> int:
+    """Write rentals.csv. Returns number of rows written."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
             SELECT
                 r.rental_id,
                 u.username          AS user,
@@ -54,12 +33,8 @@ def export_rentals(out_path: Path, limit: Optional[int] = None) -> int:
             FROM rentals r
             JOIN users u ON u.user_id = r.user_id
             ORDER BY r.start_time
-        """
-    with get_connection() as conn:
-        rows = conn.execute(query).fetchall()
-
-    if limit is not None:
-        rows = list(reversed(rows))
+            """
+        ).fetchall()
 
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -139,15 +114,11 @@ def export_events(out_path: Path) -> int:
 
 if __name__ == "__main__":
     rentals_path = OUT_DIR / "rentals.csv"
-    last10_path  = OUT_DIR / "last10_rentals.csv"
     gps_path     = OUT_DIR / "gps_track.csv"
     events_path  = OUT_DIR / "events.csv"
 
     n_rentals = export_rentals(rentals_path)
-    print(f"rentals.csv        → {rentals_path}  ({n_rentals} rows)")
-
-    n_last10 = export_rentals(last10_path, limit=10)
-    print(f"last10_rentals.csv → {last10_path}  ({n_last10} rows)")
+    print(f"rentals.csv  → {rentals_path}  ({n_rentals} rows)")
 
     n_pings = export_gps_track(gps_path)
     print(f"gps_track.csv      → {gps_path}  ({n_pings} rows)")

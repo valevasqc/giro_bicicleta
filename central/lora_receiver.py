@@ -388,11 +388,11 @@ class LoRaReceiver:
 
         with get_connection() as conn:
             bike = conn.execute(
-                "SELECT bike_id, status, current_station_id FROM bikes WHERE bike_id = ?",
+                "SELECT bike_id FROM bikes WHERE bike_id = ?",
                 (bike_id,),
             ).fetchone()
-            if not bike or bike["status"] != "docked" or bike["current_station_id"] != station_id:
-                logger.warning("[LORA] BIKE_RELEASED: bike %s not docked at %s; ignoring", bike_id, station_id)
+            if not bike:
+                logger.warning("[LORA] BIKE_RELEASED: bike %s not in DB; ignoring", bike_id)
                 return
 
             user = conn.execute(

@@ -290,6 +290,8 @@ def station_rental_request_result():
         )
 
     # ── Still waiting on central ─────────────────────────────────────
+    if state.get_pending() is None:
+        return redirect(url_for("kiosk.station_login", notice="timeout"))
     return _render_waiting(
         kind="login",
         result_url=url_for("kiosk.station_rental_request_result"),
@@ -403,8 +405,7 @@ def station_return_confirm():
     if request.method == "POST":
         gpio = current_app.extensions.get("gpio")
         if gpio is not None:
-            dock_ok   = gpio.read_dock_occupied()
-            # charge_ok = gpio.read_charge_connected()  # charger switch disabled
+            dock_ok = gpio.read_dock_occupied()
             if not dock_ok:
                 err = "La bicicleta no está en el andén. Encájala y vuelve a confirmar."
                 logger.warning("[KIOSK] return_confirm blocked — dock=%s", dock_ok)
@@ -460,8 +461,7 @@ def station_complete_return():
 
     gpio = current_app.extensions.get("gpio")
     if gpio is not None:
-        dock_ok   = gpio.read_dock_occupied()
-        # charge_ok = gpio.read_charge_connected()  # charger switch disabled
+        dock_ok = gpio.read_dock_occupied()
         if not dock_ok:
             err = "La bicicleta no está en el andén. Encájala correctamente y vuelve a intentarlo."
             logger.warning("[KIOSK] complete_return blocked — dock=%s", dock_ok)
