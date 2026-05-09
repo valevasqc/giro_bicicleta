@@ -79,7 +79,13 @@ def _connect_loop(port: str, baud: int) -> None:
             time.sleep(1)
             continue
         try:
-            ser = _serial_mod.Serial(port=port, baudrate=baud, timeout=1)
+            ser = _serial_mod.Serial()
+            ser.port = port
+            ser.baudrate = baud
+            ser.timeout = 1
+            ser.dtr = False  # prevent ESP32 auto-reset circuit from firing on port open
+            ser.rts = False
+            ser.open()
             with _lock:
                 _serial = ser
             logger.info("[LORA IO] connected to %s", port)
